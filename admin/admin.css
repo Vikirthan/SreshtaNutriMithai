@@ -1,0 +1,642 @@
+/* ==========================================================================
+   ADMIN PANEL SYSTEM STYLES
+   ========================================================================== */
+:root {
+    --color-primary: #3E2718;       /* Deep Rich Brown */
+    --color-primary-light: #5A3C2A;
+    --color-accent: #C38B31;        /* Golden Amber Orange */
+    --color-gold: #E5C060;          /* Gold */
+    --color-bg-warm: #FAF4E6;       /* Soft Organic Cream */
+    --color-bg-white: #FFFFFF;
+    --color-text-dark: #261C14;     /* Rich Warm Charcoal */
+    --color-text-muted: #807166;    /* Warm Muted Gray */
+    --color-border: #E8E2D5;
+    --color-border-warm: #E8DEC8;
+    
+    --font-primary: 'Plus Jakarta Sans', sans-serif;
+    --font-serif: 'Dancing Script', cursive;
+    
+    --border-radius-sm: 6px;
+    --border-radius-md: 12px;
+    --border-radius-lg: 20px;
+    
+    --box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+}
+
+*, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: var(--font-primary);
+    background-color: var(--color-bg-warm);
+    color: var(--color-text-dark);
+    line-height: 1.5;
+}
+
+.font-serif {
+    font-family: var(--font-serif);
+}
+
+.text-center {
+    text-align: center;
+}
+
+.section-container {
+    max-width: 1300px;
+    margin: 0 auto;
+    padding: 0 24px;
+}
+
+/* ==========================================================================
+   ADMIN SIGN-IN PORTAL OVERLAY
+   ========================================================================== */
+.login-overlay-panel {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: rgba(62, 39, 24, 0.6);
+    backdrop-filter: blur(8px);
+    z-index: 2000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 1;
+    pointer-events: auto;
+    transition: opacity 0.3s ease;
+}
+
+.login-overlay-panel.hidden {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.login-card-container {
+    background-color: var(--color-bg-white);
+    border-radius: var(--border-radius-lg);
+    border: 1px solid var(--color-border-warm);
+    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.2);
+    width: 400px;
+    max-width: 90vw;
+    padding: 40px;
+    text-align: center;
+}
+
+.login-brand {
+    font-size: 36px;
+    color: var(--color-primary);
+    margin-bottom: 8px;
+}
+
+.login-card-container h3 {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--color-text-dark);
+    margin-bottom: 24px;
+}
+
+.form-group-box {
+    text-align: left;
+    margin-bottom: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.form-group-box label {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--color-primary);
+}
+
+.form-group-box input {
+    font-family: var(--font-primary);
+    font-size: 16px;
+    padding: 12px;
+    border: 1px solid var(--color-border-warm);
+    border-radius: var(--border-radius-sm);
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.form-group-box input:focus {
+    border-color: var(--color-accent);
+}
+
+.btn-admin-submit {
+    width: 100%;
+    background-color: var(--color-primary);
+    color: var(--color-bg-warm);
+    font-size: 15px;
+    font-weight: 700;
+    padding: 12px;
+    border-radius: var(--border-radius-sm);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    transition: all 0.2s;
+    border: none;
+    cursor: pointer;
+}
+
+.btn-admin-submit:hover {
+    background-color: var(--color-primary-light);
+    transform: translateY(-1px);
+}
+
+.error-message {
+    color: #EF4444;
+    font-size: 13px;
+    margin-top: 12px;
+    font-weight: 600;
+    min-height: 20px;
+}
+
+/* ==========================================================================
+   DASHBOARD FRAMEWORK
+   ========================================================================== */
+.dashboard-wrapper {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+/* Header */
+.dashboard-header {
+    background-color: var(--color-primary);
+    color: var(--color-bg-warm);
+    height: 80px;
+    border-bottom: 3px solid var(--color-gold);
+}
+
+.db-header-container {
+    max-width: 1300px;
+    margin: 0 auto;
+    padding: 0 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 100%;
+}
+
+.brand-title {
+    font-size: 32px;
+    display: inline-block;
+    vertical-align: middle;
+}
+
+.panel-tag {
+    background-color: rgba(250, 247, 242, 0.1);
+    font-size: 12px;
+    padding: 4px 10px;
+    border-radius: 12px;
+    margin-left: 12px;
+    text-transform: uppercase;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+}
+
+.btn-logout {
+    background-color: transparent;
+    color: var(--color-bg-warm);
+    border: 1px solid rgba(250, 247, 242, 0.3);
+    padding: 8px 16px;
+    font-size: 13px;
+    border-radius: var(--border-radius-sm);
+    font-weight: 600;
+    transition: all 0.2s;
+    cursor: pointer;
+}
+
+.btn-logout:hover {
+    background-color: var(--color-accent);
+    border-color: var(--color-accent);
+}
+
+/* Content */
+.dashboard-content {
+    flex-grow: 1;
+    padding: 40px 0;
+}
+
+/* KPI Metrics */
+.metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 24px;
+    margin-bottom: 40px;
+}
+
+.metric-card {
+    background-color: var(--color-bg-white);
+    border-radius: var(--border-radius-md);
+    border: 1px solid var(--color-border-warm);
+    padding: 24px;
+    box-shadow: var(--box-shadow);
+}
+
+.metric-label {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    display: block;
+    margin-bottom: 8px;
+}
+
+.metric-val {
+    font-size: 32px;
+    font-weight: 700;
+    color: var(--color-primary);
+}
+
+.metric-card.alert {
+    border-left: 5px solid var(--color-accent);
+}
+
+.metric-card.alert .metric-val {
+    color: var(--color-accent);
+}
+
+.metric-card.active {
+    border-left: 5px solid var(--color-gold);
+}
+
+.metric-card.active .metric-val {
+    color: #B45309; /* Deep Gold */
+}
+
+.metric-card.revenue {
+    border-left: 5px solid #10B981;
+}
+
+.metric-card.revenue .metric-val {
+    color: #10B981;
+}
+
+/* Filters Control Bar */
+.filter-actions-bar {
+    background-color: var(--color-bg-white);
+    border-radius: var(--border-radius-md);
+    border: 1px solid var(--color-border-warm);
+    padding: 16px 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+    gap: 20px;
+    box-shadow: var(--box-shadow);
+}
+
+.search-box {
+    flex-grow: 1;
+    max-width: 400px;
+}
+
+.search-box input {
+    width: 100%;
+    font-family: var(--font-primary);
+    font-size: 14px;
+    padding: 10px 16px;
+    border: 1px solid var(--color-border-warm);
+    border-radius: var(--border-radius-sm);
+    outline: none;
+}
+
+.search-box input:focus {
+    border-color: var(--color-accent);
+}
+
+.filter-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.filter-group label {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--color-primary);
+}
+
+.filter-group select {
+    font-family: var(--font-primary);
+    font-size: 14px;
+    padding: 8px 16px;
+    border: 1px solid var(--color-border-warm);
+    border-radius: var(--border-radius-sm);
+    background-color: var(--color-bg-white);
+    outline: none;
+}
+
+/* ==========================================================================
+   ORDERS GRID TABLE
+   ========================================================================== */
+.orders-table-container {
+    background-color: var(--color-bg-white);
+    border-radius: var(--border-radius-md);
+    border: 1px solid var(--color-border-warm);
+    overflow-x: auto;
+    box-shadow: var(--box-shadow);
+}
+
+.orders-table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+    font-size: 14px;
+}
+
+.orders-table th {
+    background-color: #F9FAFB;
+    color: var(--color-primary);
+    font-weight: 700;
+    padding: 16px 20px;
+    border-bottom: 2px solid var(--color-border-warm);
+    text-transform: uppercase;
+    font-size: 12px;
+    letter-spacing: 0.05em;
+}
+
+.orders-table td {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--color-border-warm);
+    vertical-align: top;
+}
+
+.orders-table tbody tr:hover {
+    background-color: #FAFBFD;
+}
+
+/* Specific table columns styling */
+.order-id-col {
+    font-weight: bold;
+    color: var(--color-primary);
+}
+
+.customer-info-box {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.cust-name {
+    font-weight: 600;
+    color: var(--color-text-dark);
+}
+
+.cust-phone, .cust-email {
+    font-size: 12px;
+    color: var(--color-text-muted);
+}
+
+.order-items-list {
+    list-style: none;
+    font-size: 13px;
+}
+
+.order-items-list li {
+    margin-bottom: 4px;
+}
+
+.order-item-weight {
+    background-color: var(--color-bg-warm);
+    color: var(--color-text-muted);
+    font-size: 10px;
+    padding: 1px 4px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    margin-left: 4px;
+}
+
+.order-total-price {
+    font-weight: 700;
+    color: var(--color-primary);
+}
+
+/* Status dropdown selector inside table */
+.status-selector {
+    font-family: var(--font-primary);
+    font-size: 13px;
+    font-weight: 600;
+    padding: 6px 12px;
+    border-radius: 20px;
+    outline: none;
+    border: 1px solid var(--color-border);
+    transition: all 0.2s;
+}
+
+.status-selector[data-status="received"] {
+    background-color: #FEF3C7;
+    color: #D97706;
+    border-color: #FDE68A;
+}
+
+.status-selector[data-status="preparing"] {
+    background-color: #DBEAFE;
+    color: #1D4ED8;
+    border-color: #BFDBFE;
+}
+
+.status-selector[data-status="packed"] {
+    background-color: #FFEDD5;
+    color: #EA580C;
+    border-color: #FED7AA;
+}
+
+.status-selector[data-status="dispatched"] {
+    background-color: #F3E8FF;
+    color: #7E22CE;
+    border-color: #E9D5FF;
+}
+
+.status-selector[data-status="delivered"] {
+    background-color: #D1FAE5;
+    color: #065F46;
+    border-color: #A7F3D0;
+}
+
+/* Action Cell Controls */
+.actions-cell-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.btn-action-confirm {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #10B981;
+    color: var(--color-bg-white);
+    padding: 6px 12px;
+    border-radius: var(--border-radius-sm);
+    font-size: 11px;
+    font-weight: 700;
+    border: none;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.btn-action-confirm:hover {
+    background-color: #059669;
+}
+
+.btn-action-reminder {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #F59E0B;
+    color: var(--color-bg-white);
+    padding: 6px 12px;
+    border-radius: var(--border-radius-sm);
+    font-size: 11px;
+    font-weight: 700;
+    border: none;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.btn-action-reminder:hover {
+    background-color: #D97706;
+}
+
+/* Admin panel actions buttons */
+.btn-action-wa {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    background-color: #25D366;
+    color: var(--color-bg-white);
+    padding: 6px 12px;
+    border-radius: var(--border-radius-sm);
+    font-size: 11px;
+    font-weight: 600;
+    transition: background-color 0.2s;
+    border: none;
+    cursor: pointer;
+}
+
+.btn-action-wa:hover {
+    background-color: #128C7E;
+}
+
+/* ==========================================================================
+   SHIPPING TRACKING MODAL DIALOG
+   ========================================================================== */
+.tracking-overlay-panel {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: rgba(62, 39, 24, 0.6);
+    backdrop-filter: blur(8px);
+    z-index: 2100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 1;
+    pointer-events: auto;
+    transition: opacity 0.3s ease;
+}
+
+.tracking-overlay-panel.hidden {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.tracking-card-container {
+    background-color: var(--color-bg-white);
+    border-radius: var(--border-radius-lg);
+    border: 1px solid var(--color-border-warm);
+    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.2);
+    width: 480px;
+    max-width: 90vw;
+    padding: 30px;
+}
+
+.tracking-card-container h3 {
+    font-family: var(--font-primary);
+    color: var(--color-primary);
+    margin-bottom: 20px;
+    font-size: 18px;
+    font-weight: 700;
+    text-align: center;
+}
+
+.dialog-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    margin-top: 24px;
+}
+
+.btn-cancel {
+    background-color: transparent;
+    color: var(--color-text-muted);
+    border: 1px solid var(--color-border);
+    padding: 10px 20px;
+    border-radius: var(--border-radius-sm);
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.btn-cancel:hover {
+    background-color: #F3F4F6;
+    color: var(--color-text-dark);
+}
+
+.btn-submit-tracking {
+    background-color: var(--color-accent);
+    color: var(--color-bg-white);
+    padding: 10px 20px;
+    border-radius: var(--border-radius-sm);
+    font-weight: 700;
+    font-size: 14px;
+    border: none;
+    cursor: pointer;
+}
+
+.btn-submit-tracking:hover {
+    background-color: var(--color-accent-hover);
+}
+
+/* Dashboard Footer */
+.dashboard-footer {
+    text-align: center;
+    padding: 24px;
+    border-top: 1px solid var(--color-border-warm);
+    background-color: var(--color-bg-white);
+    font-size: 12px;
+    color: var(--color-text-muted);
+    margin-top: auto;
+}
+
+/* ==========================================================================
+   RESPONSIVENESS
+   ========================================================================== */
+@media (max-width: 1024px) {
+    .metrics-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 768px) {
+    .metrics-grid {
+        grid-template-columns: 1fr;
+    }
+    .filter-actions-bar {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .search-box {
+        max-width: none;
+    }
+}

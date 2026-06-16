@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sreshta Nutri Mithai - Handcrafted Healthy Indian Sweets</title>
+    <meta name="description" content="Discover premium, healthy Indian sweets at Sreshta Nutri Mithai. Handcrafted with love, zero preservatives, natural sweeteners, and authentic recipes. Order online and get delivery to your doorstep.">
+    
+    <!-- Google Fonts: Rubik (Body & UI) and Dancing Script (Decorative Headings) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@500;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=Rubik:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Link CSS -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <!-- Dynamic Overlay for Drawer & Modal Backdrops -->
+    <div class="overlay" id="page-overlay"></div>
+
+    <!-- Top Announcement Bar -->
+    <div class="announcement-bar">
+        <div class="announcement-track">
+            <span>✨ Pure & Traditional Sweets Made Healthy • Free Pan-India Shipping on Orders above ₹799 • Handcrafted with Organic Jaggery & Dry Fruits • Sweetness Without Compromise ✨</span>
+            <span>✨ Pure & Traditional Sweets Made Healthy • Free Pan-India Shipping on Orders above ₹799 • Handcrafted with Organic Jaggery & Dry Fruits • Sweetness Without Compromise ✨</span>
+        </div>
+    </div>
+
+    <!-- Navigation Header -->
+    <header class="site-header">
+        <div class="header-container">
+            <nav class="nav-links nav-left">
+                <a href="#hero">Home</a>
+                <a href="#sweets">Our Sweets</a>
+            </nav>
+            
+            <!-- Centered Circular Logo -->
+            <div class="brand-logo-container">
+                <a href="#hero" class="brand-logo-link">
+                    <img src="images/logo.png" alt="Sreshta Nutri Mithai Logo" class="brand-logo-img">
+                </a>
+            </div>
+            
+            <div class="nav-right">
+                <nav class="nav-links">
+                    <a href="#why-sreshta">Why Sreshta</a>
+                    <a href="#contact">Contact</a>
+                </nav>
+                <!-- Cart Button -->
+                <button class="cart-trigger-btn" id="cart-trigger" aria-label="Open shopping cart">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-cart"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg>
+                    <span class="cart-count-badge" id="cart-badge">0</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Hero Banner Section -->
+    <section class="hero-section" id="hero">
+        <div class="hero-background-overlay"></div>
+        <div class="hero-content-container">
+            <div class="hero-text-content">
+                <h2 class="hero-subtitle">Sreshta Nutri Mithai</h2>
+                <h1 class="hero-title">Heritage Taste Reimagined for <span class="highlight-text">Your Health</span></h1>
+                <p class="hero-desc">Enjoy authentic Indian delicacies handcrafted with premium nuts, super-seeds, and organic jaggery. 100% natural, preservative-free, and rich in nutrition.</p>
+                <div class="hero-cta-group">
+                    <a href="#sweets" class="btn btn-primary">Shop Our Mithai</a>
+                    <a href="#why-sreshta" class="btn btn-secondary">Learn Why We're Different</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Core Brand Values -->
+    <section class="brand-values-section">
+        <div class="section-container">
+            <div class="values-grid">
+                <div class="value-card">
+                    <div class="value-icon-box">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="value-svg"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"></path></svg>
+                    </div>
+                    <h3>100% Handcrafted</h3>
+                    <p>Prepared in traditional small batches to maintain optimal taste and absolute hygiene.</p>
+                </div>
+                <div class="value-card">
+                    <div class="value-icon-box">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="value-svg"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                    </div>
+                    <h3>Healthy Sweeteners</h3>
+                    <p>Sweetened naturally with jaggery, dates, or honey. Absolutely no white refined sugar.</p>
+                </div>
+                <div class="value-card">
+                    <div class="value-icon-box">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="value-svg"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+                    </div>
+                    <h3>Zero Preservatives</h3>
+                    <p>No artificial colors, chemistry labs, or chemical shelf-life extenders. Just pure food.</p>
+                </div>
+                <div class="value-card">
+                    <div class="value-icon-box">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="value-svg"><circle cx="12" cy="12" r="10"></circle><path d="M8 14s1.5 2 4 2 4-2 4-2"></path><line x1="9" y1="9" x2="9.01" y2="9"></line><line x1="15" y1="9" x2="15.01" y2="9"></line></svg>
+                    </div>
+                    <h3>Rich Nutrition</h3>
+                    <p>Packed with dry fruits, dietary fibers, super-seeds, and healthy fats from cow ghee.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Product Catalog Section -->
+    <section class="products-section" id="sweets">
+        <div class="section-container">
+            <div class="section-header text-center">
+                <span class="section-subtitle">Guilt-Free Indulgence</span>
+                <h2 class="section-title font-serif">Explore Our Delicious Collection</h2>
+                <div class="section-divider"></div>
+                <p class="section-desc">Handmade delicacies crafted from time-tested recipes using premium ingredients.</p>
+            </div>
+
+            <!-- Dynamic Product Grid -->
+            <div class="product-grid" id="product-list-container">
+                <!-- Products will be generated dynamically by app.js -->
+            </div>
+        </div>
+    </section>
+
+    <!-- Why Sreshta (Comparison Section) -->
+    <section class="why-sreshta-section" id="why-sreshta">
+        <div class="section-container">
+            <div class="comparison-wrapper">
+                <div class="comparison-image-side">
+                    <div class="comparison-badge">100% Honest Ingredients</div>
+                    <img src="images/hero_bg.png" alt="Sreshta ingredients details" class="comparison-img">
+                </div>
+                <div class="comparison-text-side">
+                    <span class="section-subtitle">Why Choose Us</span>
+                    <h2 class="section-title font-serif">A Smarter Way to Satisfy Your Sweet Tooth</h2>
+                    <p class="comparison-intro">Commercial sweets are packed with empty calories, palm oils, and refined white sugars. Sreshta Nutri Mithai balances heritage recipes with nutritional health.</p>
+                    
+                    <div class="comparison-checklist">
+                        <div class="checklist-item">
+                            <span class="check-icon">✓</span>
+                            <div>
+                                <h4>Sweetened with Nature</h4>
+                                <p>We only use organic jaggery, liquid dates, or fresh honey instead of processed table sugars.</p>
+                            </div>
+                        </div>
+                        <div class="checklist-item">
+                            <span class="check-icon">✓</span>
+                            <div>
+                                <h4>Made with Pure Ghee</h4>
+                                <p>We use rich, aromatic A2 cow ghee instead of hydrogenated vegetable oils or trans fats.</p>
+                            </div>
+                        </div>
+                        <div class="checklist-item">
+                            <span class="check-icon">✓</span>
+                            <div>
+                                <h4>Loaded with Superfoods</h4>
+                                <p>Every sweet is dense with nutrient-rich almonds, pumpkin seeds, walnuts, and millets.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Shopping Cart Drawer (Slides out from right) -->
+    <div class="cart-drawer-container" id="cart-drawer">
+        <div class="cart-drawer-header">
+            <h3>Your Shopping Cart (<span id="cart-total-items">0</span>)</h3>
+            <button class="cart-close-btn" id="cart-close" aria-label="Close cart">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-close"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </button>
+        </div>
+
+        <!-- Free Shipping Goal Tracker -->
+        <div class="shipping-tracker-box">
+            <div class="shipping-tracker-text" id="shipping-tracker-msg">
+                Add <strong>₹799.00</strong> more to qualify for <strong>FREE Shipping!</strong>
+            </div>
+            <div class="shipping-progress-bg">
+                <div class="shipping-progress-bar" id="shipping-progress" style="width: 0%"></div>
+            </div>
+        </div>
+
+        <!-- Cart Items List Container -->
+        <div class="cart-drawer-body">
+            <div class="cart-empty-state" id="cart-empty">
+                <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="empty-cart-icon"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg>
+                <p>Your cart is empty.</p>
+                <button class="btn btn-primary btn-sm" id="cart-continue-shopping">Browse Sweet Selection</button>
+            </div>
+            <div class="cart-items-list" id="cart-items-container">
+                <!-- Cart items dynamically rendered here -->
+            </div>
+        </div>
+
+        <!-- Cart Footer / Totaling -->
+        <div class="cart-drawer-footer" id="cart-summary-footer">
+            <div class="summary-row">
+                <span>Subtotal</span>
+                <span id="cart-subtotal">₹0.00</span>
+            </div>
+            <div class="summary-row">
+                <span>Shipping Fee</span>
+                <span id="cart-shipping">₹60.00</span>
+            </div>
+            <div class="summary-row total-row">
+                <span>Grand Total</span>
+                <span id="cart-grandtotal">₹60.00</span>
+            </div>
+            <div class="payment-method-badge">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-lock"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                <span>Online Payment Only (UPI/GPay/NetBanking)</span>
+            </div>
+            <button class="btn btn-primary w-100" id="checkout-trigger-btn">Proceed to Buy Now</button>
+        </div>
+    </div>
+
+    <!-- Checkout Modal (Customer Details Form) -->
+    <div class="checkout-modal-container" id="checkout-modal">
+        <div class="checkout-modal-header">
+            <h3>Delivery & Payment Details</h3>
+            <button class="modal-close-btn" id="modal-close" aria-label="Close modal">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-close"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </button>
+        </div>
+        
+        <div class="checkout-modal-body">
+            <!-- Order Quick Review -->
+            <div class="order-quick-summary-box">
+                <h4>Order Summary</h4>
+                <div class="summary-items-list" id="checkout-items-summary">
+                    <!-- Dynamic review list -->
+                </div>
+                <div class="summary-amount-footer">
+                    <span>Total Amount to Pay:</span>
+                    <strong id="checkout-grandtotal-display">₹0.00</strong>
+                </div>
+            </div>
+
+            <!-- Checkout Form -->
+            <form class="checkout-form" id="order-checkout-form">
+                <div class="form-group">
+                    <label for="cust-name">Full Name <span class="required">*</span></label>
+                    <input type="text" id="cust-name" required placeholder="Enter your full name">
+                </div>
+                
+                <div class="form-group">
+                    <label for="cust-email">Email Address <span class="required">*</span></label>
+                    <input type="email" id="cust-email" required placeholder="Enter your email (e.g. name@example.com)">
+                    <small class="input-helper">Required for receiving email tracking updates (Preparing, Dispatched, Delivered).</small>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group flex-1">
+                        <label for="cust-phone">WhatsApp/Phone Number <span class="required">*</span></label>
+                        <input type="tel" id="cust-phone" required pattern="^[6-9]\d{9}$" placeholder="10-digit mobile number">
+                        <small class="input-helper">We will send tracking updates here.</small>
+                    </div>
+                    <div class="form-group flex-1">
+                        <label for="cust-pincode">Pincode / Postal Code <span class="required">*</span></label>
+                        <input type="text" id="cust-pincode" required pattern="^\d{6}$" placeholder="6-digit PIN code">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="cust-address">Complete Delivery Address <span class="required">*</span></label>
+                    <textarea id="cust-address" required rows="3" placeholder="Flat No., House/Plot Name, Street Address, City, State"></textarea>
+                </div>
+
+                <!-- Payment Method (Fixed info box) -->
+                <div class="payment-method-box">
+                    <label class="payment-title">Payment Method</label>
+                    <div class="payment-selection-card active">
+                        <div class="payment-radio-circle active"></div>
+                        <div class="payment-info">
+                            <strong>Secure Online Payment</strong>
+                            <p>Pay online via UPI, Google Pay, PhonePe, or NetBanking. Payment link/QR code will be sent to your WhatsApp number to complete the order.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-primary btn-whatsapp w-100" id="whatsapp-submit-btn">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="whatsapp-icon"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg>
+                    <span>Place Order & Pay via WhatsApp</span>
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Contact & Footer Section -->
+    <footer class="site-footer" id="contact">
+        <div class="footer-top-container">
+            <div class="section-container">
+                <div class="footer-grid">
+                    
+                    <!-- Col 1: Brand -->
+                    <div class="footer-col brand-col">
+                        <img src="images/logo.png" alt="Sreshta Logo" class="footer-logo">
+                        <h3 class="footer-brand-name font-serif">Sreshta Nutri Mithai</h3>
+                        <p class="footer-tagline">Satisfying your sweet cravings with the pure goodness of traditional healthy Indian mithai.</p>
+                        <div class="social-links-list">
+                            <a href="#" aria-label="Follow us on Instagram">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="social-icon"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line></svg>
+                            </a>
+                            <a href="#" aria-label="Follow us on Facebook">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="social-icon"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"></path></svg>
+                            </a>
+                            <a href="https://wa.me/918190022020" aria-label="Contact us on WhatsApp">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="social-icon"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg>
+                            </a>
+                        </div>
+                    </div>
+                    
+                    <!-- Col 2: Navigation Links -->
+                    <div class="footer-col links-col">
+                        <h4>Explore Links</h4>
+                        <ul>
+                            <li><a href="#hero">Home</a></li>
+                            <li><a href="#sweets">Our Sweets Collection</a></li>
+                            <li><a href="#why-sreshta">Why Sreshta Nutri Mithai</a></li>
+                            <li><a href="#contact">Contact Support</a></li>
+                        </ul>
+                    </div>
+
+                    <!-- Col 3: Delicacies list -->
+                    <div class="footer-col links-col">
+                        <h4>Our Signature Mithai</h4>
+                        <ul>
+                            <li><a href="#sweets">Premium Nutri Ladoo</a></li>
+                            <li><a href="#sweets">Traditional Madugula Halwa</a></li>
+                            <li><a href="#sweets">Atreyapuram Pootharekulu</a></li>
+                            <li><a href="#sweets">Healthy Choco Bites</a></li>
+                        </ul>
+                    </div>
+
+                    <!-- Col 4: Contact & Operations -->
+                    <div class="footer-col contact-col">
+                        <h4>Contact Details</h4>
+                        <div class="contact-details-list">
+                            <p>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="info-icon"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
+                                <span>+91 81900 22020</span>
+                            </p>
+                            <p>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="info-icon"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+                                <span>orders@sreshtanutrimithai.com</span>
+                            </p>
+                            <p>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="info-icon"><path d="M12 2a8 8 0 0 0-8 8c0 5.25 8 12 8 12s8-6.75 8-12a8 8 0 0 0-8-8z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+                                <span>Hyderabad, Telangana, India</span>
+                            </p>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+        <div class="footer-bottom-container">
+            <div class="section-container text-center">
+                <p>&copy; 2026 Sreshta Nutri Mithai. All rights reserved. Sweetened naturally by nature.</p>
+                <div class="payment-gateways">
+                    <span>Accepted Payments: UPI | GPay | PhonePe | Card Payment</span>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Link JS -->
+    <script src="app.js" charset="utf-8"></script>
+</body>
+</html>
