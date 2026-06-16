@@ -38,7 +38,10 @@ async function setupPublicAssets() {
         }
 
         // 2. Read logo.png from filesystem and upload to bucket
-        const logoPath = path.join(__dirname, 'images', 'logo.png');
+        let logoPath = path.join(__dirname, 'public', 'images', 'logo.png');
+        if (!fs.existsSync(logoPath)) {
+            logoPath = path.join(__dirname, 'images', 'logo.png');
+        }
         if (fs.existsSync(logoPath)) {
             const fileBuffer = fs.readFileSync(logoPath);
             const { error: uploadError } = await supabase.storage
@@ -71,6 +74,7 @@ if (supabaseUrl && supabaseAnonKey) {
 
 // Serve static frontend files
 app.use(express.static('.'));
+app.use(express.static('public'));
 
 // ==========================================================================
 // BREVO (SENDINBLUE) EMAIL API HELPER
