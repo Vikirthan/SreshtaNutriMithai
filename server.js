@@ -449,14 +449,14 @@ app.post('/api/orders', async (req, res) => {
         if (email) {
             const customerSubject = `Sreshta Nutri Mithai - Payment Request for Order #${order.id}`;
             const customerEmailBody = getPaymentRequestTemplate(order, itemsHtml);
-            sendEmail(recipientEmail, name, customerSubject, customerEmailBody);
+            await sendEmail(recipientEmail, name, customerSubject, customerEmailBody);
         }
 
         // Email 2: Send alert notification to Admin
         const adminNotificationEmail = process.env.BREVO_SENDER_EMAIL || 'orders@sreshtanutrimithai.com';
         const adminSubject = `🚨 Sreshta Alert: New Order Received (#${order.id})`;
         const adminEmailBody = getAdminNotificationTemplate(order, itemsHtml);
-        sendEmail(adminNotificationEmail, "Sreshta Admin", adminSubject, adminEmailBody);
+        await sendEmail(adminNotificationEmail, "Sreshta Admin", adminSubject, adminEmailBody);
 
         res.status(201).json({ success: true, orderId: order.id });
     } catch (err) {
@@ -539,7 +539,7 @@ app.post('/api/admin/orders/:id/confirm-payment', async (req, res) => {
             const itemsHtml = getItemsListHtml(order.items);
             const subject = `Sreshta Nutri Mithai - Payment Confirmed! (Order #${order.id})`;
             const emailBody = getPaymentConfirmedTemplate(order, itemsHtml);
-            sendEmail(customerEmail, order.customer_name, subject, emailBody);
+            await sendEmail(customerEmail, order.customer_name, subject, emailBody);
         }
 
         res.json({ success: true, order: order });
@@ -639,7 +639,7 @@ app.post('/api/admin/orders/:id/dispatch', async (req, res) => {
             const itemsHtml = getItemsListHtml(order.items);
             const subject = `🚚 Sweets on the Way! Sreshta Order #${order.id} Dispatched`;
             const emailBody = getOrderDispatchedTemplate(order, itemsHtml);
-            sendEmail(customerEmail, order.customer_name, subject, emailBody);
+            await sendEmail(customerEmail, order.customer_name, subject, emailBody);
         }
 
         res.json({ success: true, order: order });
@@ -687,15 +687,15 @@ app.patch('/api/admin/orders/:id/status', async (req, res) => {
             if (status === 'preparing') {
                 const subject = `Sreshta Nutri Mithai - Payment Confirmed! (Order #${order.id})`;
                 const emailBody = getPaymentConfirmedTemplate(order, itemsHtml);
-                sendEmail(customerEmail, order.customer_name, subject, emailBody);
+                await sendEmail(customerEmail, order.customer_name, subject, emailBody);
             } else if (status === 'packed') {
                 const subject = `📦 Fresh Batch Packed! Sreshta Order #${order.id}`;
                 const emailBody = getOrderPackedTemplate(order, itemsHtml);
-                sendEmail(customerEmail, order.customer_name, subject, emailBody);
+                await sendEmail(customerEmail, order.customer_name, subject, emailBody);
             } else if (status === 'delivered') {
                 const subject = `🎉 Order Delivered Successfully! (Sreshta Order #${order.id})`;
                 const emailBody = getOrderDeliveredTemplate(order);
-                sendEmail(customerEmail, order.customer_name, subject, emailBody);
+                await sendEmail(customerEmail, order.customer_name, subject, emailBody);
             }
         }
 
