@@ -6,8 +6,6 @@ const PRODUCTS = [
         id: "nutri-ladoo",
         name: "Nutri Ladoo",
         image: "images/nutri_ladoo.png",
-        rating: 4.9,
-        reviewsCount: 148,
         desc: "High-protein, nutrient-rich seed balls sweetened naturally with premium dates and organic jaggery.",
         badge: "Best Seller",
         ingredients: "Organic Jaggery, Almonds, Cashews, Pistachios, Pumpkin seeds, Sunflower seeds, Flax seeds, A2 Ghee, Cardamom.",
@@ -20,8 +18,6 @@ const PRODUCTS = [
         id: "madugula-halwa",
         name: "Madugula Halwa",
         image: "images/madugula_halwa.png",
-        rating: 4.8,
-        reviewsCount: 98,
         desc: "Authentic, rich, dark wheat-milk halwa sweetened with organic jaggery and packed with whole roasted cashews.",
         badge: "Heritage Sweet",
         ingredients: "Fermented Wheat Milk Extraction (Godhuma Palu), Pure Cow Ghee, Organic Jaggery, Roasted Cashew Nuts, Cardamom.",
@@ -34,8 +30,6 @@ const PRODUCTS = [
         id: "pootharekulu",
         name: "Putha re Kulu",
         image: "images/pootharekulu.png",
-        rating: 4.9,
-        reviewsCount: 185,
         desc: "Atreyapuram heritage paper-thin rice starch wafer rolls stuffed with organic jaggery, pure ghee, and dry fruits.",
         badge: "Staff Pick",
         ingredients: "Thin Rice Starch Sheets, Pure Cow Ghee, Powdered Organic Jaggery, Crushed Cashews, Pistachios, Almonds.",
@@ -48,8 +42,6 @@ const PRODUCTS = [
         id: "choco-bites",
         name: "Choco Bites",
         image: "images/choco_bites.png",
-        rating: 4.7,
-        reviewsCount: 76,
         desc: "Premium cocoa energy squares blended with dry fruits, crunchy seeds, almond butter, and raw honey.",
         badge: "Antioxidant Rich",
         ingredients: "Dark Cocoa, Organic Honey, Rolled Oats, Almond Butter, Soft Dates, Sunflower Seeds, Chia Seeds, Pink Salt.",
@@ -220,11 +212,6 @@ function renderProducts() {
                 </div>
                 
                 <div class="product-details">
-                    <div class="product-rating">
-                        <span class="product-rating-stars">★★★★★</span>
-                        <span class="product-reviews-count">(${product.reviewsCount} reviews)</span>
-                    </div>
-                    
                     <h3 class="product-name">${product.name}</h3>
                     <p class="product-description">${product.desc}</p>
                     

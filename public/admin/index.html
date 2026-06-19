@@ -82,11 +82,20 @@
                     </div>
                 </div>
 
+                <!-- Bulk Actions Bar -->
+                <div id="bulk-actions-bar" class="bulk-actions-bar hidden">
+                    <span id="selected-count-text" class="selected-count-text">0 orders selected</span>
+                    <button type="button" id="btn-bulk-delete" class="btn-bulk-delete">
+                        🗑️ Delete Selected
+                    </button>
+                </div>
+
                 <!-- Orders Table Display -->
                 <div class="orders-table-container">
                     <table class="orders-table">
                         <thead>
                             <tr>
+                                <th><input type="checkbox" id="select-all-checkbox"></th>
                                 <th>Order ID</th>
                                 <th>Date & Time</th>
                                 <th>Customer Details</th>
@@ -100,7 +109,7 @@
                         <tbody id="orders-tbody-list">
                             <!-- Populated dynamically by admin.js -->
                             <tr>
-                                <td colspan="8" class="text-center" style="padding: 40px; color: var(--color-text-muted);">
+                                <td colspan="9" class="text-center" style="padding: 40px; color: var(--color-text-muted);">
                                     Connecting to server and retrieving order entries...
                                 </td>
                             </tr>

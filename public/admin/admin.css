@@ -13,6 +13,7 @@
     --color-text-muted: #807166;    /* Warm Muted Gray */
     --color-border: #E8E2D5;
     --color-border-warm: #E8DEC8;
+    --color-danger: #EF4444;       /* Safe Danger Red */
     
     --font-primary: 'Plus Jakarta Sans', sans-serif;
     --font-serif: 'Dancing Script', cursive;
@@ -545,6 +546,78 @@ body {
 
 .btn-action-notify:hover {
     background-color: #2563EB;
+}
+
+.btn-action-delete {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    background-color: var(--color-danger);
+    color: var(--color-bg-white);
+    padding: 6px 12px;
+    border-radius: var(--border-radius-sm);
+    font-size: 11px;
+    font-weight: 600;
+    transition: background-color 0.2s;
+    border: none;
+    cursor: pointer;
+}
+
+.btn-action-delete:hover {
+    background-color: #DC2626;
+}
+
+/* Bulk Actions Bar Styles */
+.bulk-actions-bar {
+    background-color: #FEF2F2; /* Soft red tint */
+    border: 1px solid #FCA5A5;
+    border-radius: var(--border-radius-md);
+    padding: 14px 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+    box-shadow: var(--box-shadow);
+    transition: all 0.3s ease;
+}
+
+.bulk-actions-bar.hidden {
+    display: none;
+}
+
+.selected-count-text {
+    font-size: 14px;
+    font-weight: 700;
+    color: #991B1B;
+}
+
+.btn-bulk-delete {
+    background-color: var(--color-danger);
+    color: var(--color-bg-white);
+    border: none;
+    padding: 8px 16px;
+    border-radius: var(--border-radius-sm);
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.btn-bulk-delete:hover {
+    background-color: #DC2626;
+}
+
+/* Checkbox specific centering inside table */
+.orders-table th:first-child,
+.orders-table td:first-child {
+    text-align: center;
+    width: 48px;
+    padding-right: 10px;
+    padding-left: 10px;
 }
 
 /* ==========================================================================

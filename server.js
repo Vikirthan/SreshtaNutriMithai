@@ -968,6 +968,72 @@ app.post('/api/admin/orders/:id/notify', async (req, res) => {
     }
 });
 
+// 9. Delete Order (Admin trigger)
+app.delete('/api/admin/orders/:id', async (req, res) => {
+    if (!supabase) {
+        return res.status(500).json({ error: "Database not configured." });
+    }
+
+    const authHeader = req.headers.authorization;
+    if (authHeader !== "Bearer sreshta-admin-authenticated-session") {
+        return res.status(403).json({ error: "Access Denied." });
+    }
+
+    const orderId = req.params.id;
+
+    try {
+        const { data, error } = await supabase
+            .from('orders')
+            .delete()
+            .eq('id', orderId)
+            .select();
+
+        if (error) throw error;
+        if (data.length === 0) {
+            return res.status(404).json({ error: "Order not found." });
+        }
+
+        console.log(`Order #${orderId} deleted from database by admin.`);
+        res.json({ success: true, message: `Order #${orderId} deleted successfully.` });
+    } catch (err) {
+        console.error("Delete Order Error:", err.message);
+        res.status(500).json({ error: "Failed to delete order from database." });
+    }
+});
+
+// 10. Bulk Delete Orders (Admin trigger)
+app.post('/api/admin/orders/bulk-delete', async (req, res) => {
+    if (!supabase) {
+        return res.status(500).json({ error: "Database not configured." });
+    }
+
+    const authHeader = req.headers.authorization;
+    if (authHeader !== "Bearer sreshta-admin-authenticated-session") {
+        return res.status(403).json({ error: "Access Denied." });
+    }
+
+    const { ids } = req.body;
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+        return res.status(400).json({ error: "No order IDs specified." });
+    }
+
+    try {
+        const { data, error } = await supabase
+            .from('orders')
+            .delete()
+            .in('id', ids)
+            .select();
+
+        if (error) throw error;
+
+        console.log(`Successfully deleted ${data.length} orders from database.`);
+        res.json({ success: true, message: `Successfully deleted ${data.length} orders.` });
+    } catch (err) {
+        console.error("Bulk Delete Orders Error:", err.message);
+        res.status(500).json({ error: "Failed to delete selected orders from database." });
+    }
+});
+
 // Start server
 app.listen(PORT, () => {
     console.log(`Server is running locally on http://localhost:${PORT}`);

@@ -20,6 +20,11 @@ const searchInput = document.getElementById("order-search-input");
 const statusFilter = document.getElementById("status-filter");
 const ordersListContainer = document.getElementById("orders-tbody-list");
 
+const selectAllCheckbox = document.getElementById("select-all-checkbox");
+const bulkActionsBar = document.getElementById("bulk-actions-bar");
+const selectedCountText = document.getElementById("selected-count-text");
+const btnBulkDelete = document.getElementById("btn-bulk-delete");
+
 // Tracking Modal Elements
 const trackingModal = document.getElementById("tracking-modal");
 const trackingForm = document.getElementById("tracking-form");
@@ -39,6 +44,27 @@ document.addEventListener("DOMContentLoaded", () => {
     // Setup Search & Filter events
     searchInput.addEventListener("input", filterAndRenderTable);
     statusFilter.addEventListener("change", filterAndRenderTable);
+
+    // Setup Selection & Bulk Action events
+    if (selectAllCheckbox) {
+        selectAllCheckbox.addEventListener("change", toggleSelectAll);
+    }
+    if (btnBulkDelete) {
+        btnBulkDelete.addEventListener("click", deleteSelectedOrders);
+    }
+    if (ordersListContainer) {
+        ordersListContainer.addEventListener("change", (e) => {
+            if (e.target.classList.contains("order-select-checkbox")) {
+                const totalVisibleCheckboxes = document.querySelectorAll(".order-select-checkbox").length;
+                const totalCheckedCheckboxes = document.querySelectorAll(".order-select-checkbox:checked").length;
+                
+                if (selectAllCheckbox) {
+                    selectAllCheckbox.checked = (totalVisibleCheckboxes === totalCheckedCheckboxes && totalVisibleCheckboxes > 0);
+                }
+                updateBulkActionsUI();
+            }
+        });
+    }
     
     // Setup Tracking Modal events
     trackingCancelBtn.addEventListener("click", () => {
@@ -302,6 +328,94 @@ async function sendCustomerNotification(orderId, email) {
     }
 }
 
+// 6. Delete Single Order
+async function deleteOrder(orderId) {
+    if (!confirm(`Are you sure you want to permanently delete Order #${orderId}? This action cannot be undone.`)) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/admin/orders/${orderId}`, {
+            method: 'DELETE',
+            headers: {
+                'Authorization': `Bearer ${sessionToken}`
+            }
+        });
+        
+        const data = await response.json();
+        if (response.ok && data.success) {
+            orders = orders.filter(o => o.id !== parseInt(orderId));
+            updateMetrics();
+            filterAndRenderTable();
+            alert(`Order #${orderId} deleted successfully.`);
+        } else {
+            alert(data.error || "Failed to delete order.");
+        }
+    } catch (err) {
+        console.error(err);
+        alert("Server error deleting order.");
+    }
+}
+
+// 7. Delete Selected Orders (Bulk)
+async function deleteSelectedOrders() {
+    const checkedBoxes = document.querySelectorAll(".order-select-checkbox:checked");
+    const ids = Array.from(checkedBoxes).map(cb => parseInt(cb.getAttribute("data-id")));
+    
+    if (ids.length === 0) return;
+    
+    if (!confirm(`Are you sure you want to permanently delete these ${ids.length} selected orders? This action cannot be undone.`)) {
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/admin/orders/bulk-delete', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${sessionToken}`
+            },
+            body: JSON.stringify({ ids })
+        });
+        
+        const data = await response.json();
+        if (response.ok && data.success) {
+            orders = orders.filter(o => !ids.includes(o.id));
+            updateMetrics();
+            filterAndRenderTable();
+            alert(`Successfully deleted ${ids.length} orders.`);
+        } else {
+            alert(data.error || "Failed to delete selected orders.");
+        }
+    } catch (err) {
+        console.error(err);
+        alert("Server error during bulk delete.");
+    }
+}
+
+// 8. Selection State Handlers
+function toggleSelectAll(e) {
+    const isChecked = e.target.checked;
+    const rowCheckboxes = document.querySelectorAll(".order-select-checkbox");
+    rowCheckboxes.forEach(cb => {
+        cb.checked = isChecked;
+    });
+    updateBulkActionsUI();
+}
+
+function updateBulkActionsUI() {
+    const checkedBoxes = document.querySelectorAll(".order-select-checkbox:checked");
+    const count = checkedBoxes.length;
+    
+    if (count > 0) {
+        bulkActionsBar.classList.remove("hidden");
+        selectedCountText.textContent = `${count} order${count > 1 ? 's' : ''} selected`;
+    } else {
+        bulkActionsBar.classList.add("hidden");
+        if (selectAllCheckbox) selectAllCheckbox.checked = false;
+    }
+}
+
 // ==========================================================================
 // CALCULATE & RENDER DASHBOARD KPI METRICS
 // ==========================================================================
@@ -329,6 +443,10 @@ function updateMetrics() {
 // FILTERING AND TABLE RENDERING
 // ==========================================================================
 function filterAndRenderTable() {
+    // Reset selection checkboxes on filter
+    if (selectAllCheckbox) selectAllCheckbox.checked = false;
+    if (bulkActionsBar) bulkActionsBar.classList.add("hidden");
+
     const keyword = searchInput.value.toLowerCase().trim();
     const selectedStatus = statusFilter.value;
 
@@ -358,7 +476,7 @@ function renderTableRows(orderRecords) {
     if (orderRecords.length === 0) {
         ordersListContainer.innerHTML = `
             <tr>
-                <td colspan="8" class="text-center" style="padding: 40px; color: var(--color-text-muted);">
+                <td colspan="9" class="text-center" style="padding: 40px; color: var(--color-text-muted);">
                     No orders match your filter criteria.
                 </td>
             </tr>
@@ -406,10 +524,14 @@ function renderTableRows(orderRecords) {
             <button class="btn-action-wa" onclick="contactCustomerWhatsApp('${order.customer_phone}', ${order.id})">
                 💬 WhatsApp
             </button>
+            <button class="btn-action-delete" onclick="deleteOrderHandler(${order.id})">
+                🗑️ Delete
+            </button>
         `;
 
         return `
             <tr>
+                <td><input type="checkbox" class="order-select-checkbox" data-id="${order.id}"></td>
                 <td class="order-id-col">#${order.id}</td>
                 <td>${formattedDate}</td>
                 <td>
@@ -475,6 +597,10 @@ window.sendPaymentReminderHandler = function(orderId, email) {
 
 window.sendCustomerNotificationHandler = function(orderId, email) {
     sendCustomerNotification(orderId, email);
+};
+
+window.deleteOrderHandler = function(orderId) {
+    deleteOrder(orderId);
 };
 
 // WhatsApp contact helper
