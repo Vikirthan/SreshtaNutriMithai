@@ -99,6 +99,7 @@ async function sendEmail(toEmail, toName, subject, htmlContent) {
     const apiKey = process.env.BREVO_API_KEY;
     const senderEmail = process.env.BREVO_SENDER_EMAIL || 'orders@sreshtanutrimithai.com';
     const senderName = process.env.BREVO_SENDER_NAME || 'Sreshta Nutri Mithai';
+    const replyToEmail = process.env.BREVO_REPLY_TO_EMAIL;
 
     if (!apiKey) {
         console.warn("WARNING: Brevo API key is missing. Skipping email send.");
@@ -106,18 +107,24 @@ async function sendEmail(toEmail, toName, subject, htmlContent) {
     }
 
     try {
+        const payload = {
+            sender: { name: senderName, email: senderEmail },
+            to: [{ email: toEmail, name: toName }],
+            subject: subject,
+            htmlContent: htmlContent
+        };
+
+        if (replyToEmail) {
+            payload.replyTo = { name: senderName, email: replyToEmail };
+        }
+
         const response = await fetch('https://api.brevo.com/v3/smtp/email', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'api-key': apiKey
             },
-            body: JSON.stringify({
-                sender: { name: senderName, email: senderEmail },
-                to: [{ email: toEmail, name: toName }],
-                subject: subject,
-                htmlContent: htmlContent
-            })
+            body: JSON.stringify(payload)
         });
 
         if (!response.ok) {
