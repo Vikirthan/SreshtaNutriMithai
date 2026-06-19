@@ -891,6 +891,83 @@ app.patch('/api/admin/orders/:id/status', async (req, res) => {
     }
 });
 
+// 8. Manually Send Status Notification Email (Admin trigger)
+app.post('/api/admin/orders/:id/notify', async (req, res) => {
+    if (!supabase) {
+        return res.status(500).json({ error: "Database not configured." });
+    }
+
+    const authHeader = req.headers.authorization;
+    if (authHeader !== "Bearer sreshta-admin-authenticated-session") {
+        return res.status(403).json({ error: "Access Denied." });
+    }
+
+    const orderId = req.params.id;
+    const { email } = req.body;
+
+    try {
+        // Fetch order details
+        const { data, error } = await supabase
+            .from('orders')
+            .select('*')
+            .eq('id', orderId);
+
+        if (error) throw error;
+        if (data.length === 0) {
+            return res.status(404).json({ error: "Order not found." });
+        }
+
+        const order = data[0];
+        const status = order.order_status;
+        const customerEmail = order.customer_email || email;
+
+        if (!customerEmail || customerEmail === 'customer@example.com') {
+            return res.status(400).json({ error: "Valid customer email is not available for this order." });
+        }
+
+        console.log(`Manually triggering status notification email for Order #${orderId} | Status: ${status}`);
+
+        const itemsHtml = getItemsListHtml(order.items);
+        let subject = '';
+        let emailBody = '';
+        let successMessage = '';
+
+        if (status === 'received' || status === 'pending_payment') {
+            subject = `Sreshta Nutri Mithai - Payment Request for Order #${order.id}`;
+            emailBody = getPaymentRequestTemplate(order, itemsHtml);
+            successMessage = `Payment request email successfully sent to: ${customerEmail}`;
+        } else if (status === 'preparing') {
+            subject = `Sreshta Nutri Mithai - Payment Confirmed! (Order #${order.id})`;
+            emailBody = getPaymentConfirmedTemplate(order, itemsHtml);
+            successMessage = `Payment confirmation email successfully sent to: ${customerEmail}`;
+        } else if (status === 'packed') {
+            subject = `📦 Fresh Batch Packed! Sreshta Order #${order.id}`;
+            emailBody = getOrderPackedTemplate(order, itemsHtml);
+            successMessage = `Order packed notification email successfully sent to: ${customerEmail}`;
+        } else if (status === 'dispatched') {
+            subject = `🚚 Sweets on the Way! Sreshta Order #${order.id} Dispatched`;
+            emailBody = getOrderDispatchedTemplate(order, itemsHtml);
+            successMessage = `Order dispatched notification email successfully sent to: ${customerEmail}`;
+        } else if (status === 'delivered') {
+            subject = `🎉 Order Delivered Successfully! (Sreshta Order #${order.id})`;
+            emailBody = getOrderDeliveredTemplate(order);
+            successMessage = `Order delivered notification email successfully sent to: ${customerEmail}`;
+        } else {
+            return res.status(400).json({ error: `Cannot send email for current order status: ${status}` });
+        }
+
+        const emailResult = await sendEmail(customerEmail, order.customer_name, subject, emailBody);
+        if (!emailResult.success) {
+            throw new Error(emailResult.error || "Email helper failed to send email.");
+        }
+
+        res.json({ success: true, message: successMessage });
+    } catch (err) {
+        console.error("Notify trigger Error:", err.message);
+        res.status(500).json({ error: `Failed to trigger notification email: ${err.message}` });
+    }
+});
+
 // Start server
 app.listen(PORT, () => {
     console.log(`Server is running locally on http://localhost:${PORT}`);

@@ -5,6 +5,7 @@
     --color-primary: #3E2718;       /* Deep Rich Brown */
     --color-primary-light: #5A3C2A;
     --color-accent: #C38B31;        /* Golden Amber Orange */
+    --color-accent-hover: #A16F24;
     --color-gold: #E5C060;          /* Gold */
     --color-bg-warm: #FAF4E6;       /* Soft Organic Cream */
     --color-bg-white: #FFFFFF;
@@ -524,6 +525,26 @@ body {
 
 .btn-action-wa:hover {
     background-color: #128C7E;
+}
+
+.btn-action-notify {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    background-color: #3B82F6; /* Professional Email Blue */
+    color: var(--color-bg-white);
+    padding: 6px 12px;
+    border-radius: var(--border-radius-sm);
+    font-size: 11px;
+    font-weight: 600;
+    transition: background-color 0.2s;
+    border: none;
+    cursor: pointer;
+}
+
+.btn-action-notify:hover {
+    background-color: #2563EB;
 }
 
 /* ==========================================================================

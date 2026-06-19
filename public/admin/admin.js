@@ -278,6 +278,30 @@ async function updateOrderStatus(orderId, newStatus, customerEmail) {
     }
 }
 
+// 5. Send Status Notification Trigger
+async function sendCustomerNotification(orderId, email) {
+    try {
+        const response = await fetch(`/api/admin/orders/${orderId}/notify`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${sessionToken}`
+            },
+            body: JSON.stringify({ email })
+        });
+        
+        const data = await response.json();
+        if (response.ok && data.success) {
+            alert(data.message || "Customer successfully notified of the current order status.");
+        } else {
+            alert(data.error || "Failed to notify customer.");
+        }
+    } catch (err) {
+        console.error(err);
+        alert("Server error sending notification.");
+    }
+}
+
 // ==========================================================================
 // CALCULATE & RENDER DASHBOARD KPI METRICS
 // ==========================================================================
@@ -376,6 +400,9 @@ function renderTableRows(orderRecords) {
         }
         
         actionButtonsHtml += `
+            <button class="btn-action-notify" onclick="sendCustomerNotificationHandler(${order.id}, '${email}')">
+                ✉️ Notify
+            </button>
             <button class="btn-action-wa" onclick="contactCustomerWhatsApp('${order.customer_phone}', ${order.id})">
                 💬 WhatsApp
             </button>
@@ -444,6 +471,10 @@ window.confirmOrderPaymentHandler = function(orderId, email) {
 
 window.sendPaymentReminderHandler = function(orderId, email) {
     sendPaymentReminder(orderId, email);
+};
+
+window.sendCustomerNotificationHandler = function(orderId, email) {
+    sendCustomerNotification(orderId, email);
 };
 
 // WhatsApp contact helper
