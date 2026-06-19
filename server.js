@@ -141,6 +141,101 @@ async function sendEmail(toEmail, toName, subject, htmlContent) {
 }
 
 // ==========================================================================
+// WHATSAPP NOTIFICATION HELPER
+// ==========================================================================
+async function sendWhatsApp(toPhone, messageText) {
+    const serviceUrl = process.env.WHATSAPP_SERVICE_URL;
+    const apiKey = process.env.WHATSAPP_SERVICE_KEY || 'Vikirthan@WhatsApp2026';
+
+    if (!serviceUrl) {
+        console.warn("WARNING: WhatsApp Service URL is not configured. Skipping WhatsApp send.");
+        return { success: false, message: "WhatsApp Service URL is missing." };
+    }
+
+    try {
+        const response = await fetch(`${serviceUrl}/api/send`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-API-Key': apiKey
+            },
+            body: JSON.stringify({
+                phone: toPhone,
+                message: messageText
+            })
+        });
+
+        if (!response.ok) {
+            const errData = await response.json();
+            throw new Error(errData.error || 'Error response from WhatsApp API');
+        }
+
+        console.log(`WhatsApp message dispatched successfully to: ${toPhone}`);
+        return { success: true };
+    } catch (error) {
+        console.error("Error sending WhatsApp notification:", error.message);
+        return { success: false, error: error.message };
+    }
+}
+
+// ==========================================================================
+// WHATSAPP TEXT TEMPLATE GENERATORS
+// ==========================================================================
+function getWhatsAppPaymentRequest(order) {
+    return `Hello ${order.customer_name},
+
+Thank you for placing your order with Sreshta Nutri Mithai!
+
+Order ID: #${order.id}
+Total Amount: ₹${order.grand_total}.00
+
+To initiate preparation, please complete your online payment using GPay/PhonePe/Paytm to our UPI ID: 8190022020@upi.
+
+Please reply to this chat with your payment screenshot to confirm. We will start preparing your fresh batch immediately!`;
+}
+
+function getWhatsAppPaymentConfirmed(order) {
+    return `Hello ${order.customer_name},
+
+Great news! We have successfully verified your payment of ₹${order.grand_total}.00 for Order #${order.id}.
+
+Your order has been Accepted and our kitchen chefs have started preparing your fresh sweets handcrafted with pure A2 cow ghee! We will notify you as soon as they are packed.`;
+}
+
+function getWhatsAppOrderPacked(order) {
+    return `Hello ${order.customer_name},
+
+Your Sreshta Nutri Mithai order #${order.id} has been freshly prepared, quality-checked, and packed securely!
+
+We are handing it over to our delivery partner shortly, and will share your tracking details as soon as they are generated.`;
+}
+
+function getWhatsAppOrderDispatched(order) {
+    const trackingId = order.tracking_id || "N/A";
+    const courierName = order.courier_name || "Our Delivery Partner";
+    const trackingLink = order.tracking_link ? `\nTracking Link: ${order.tracking_link}` : "";
+
+    return `Hello ${order.customer_name},
+
+Sweets are on the way! Your order #${order.id} has been Dispatched.
+
+Courier Partner: ${courierName}
+Tracking ID: ${trackingId}${trackingLink}
+
+You can track your package transit in real time. Thank you for choosing Sreshta!`;
+}
+
+function getWhatsAppOrderDelivered(order) {
+    return `Hello ${order.customer_name},
+
+Your Sreshta Nutri Mithai order #${order.id} has been Delivered successfully!
+
+We hope you love your healthy, handcrafted treats.
+
+🎁 Never run out of sweets! Reply to this chat if you would like to subscribe to our Monthly Sweet Delivery plan for fresh monthly boxes at special rates. Enjoy!`;
+}
+
+// ==========================================================================
 // EMAIL HTML TEMPLATES (SPECIALIZED DESIGNS)
 // ==========================================================================
 
@@ -475,6 +570,12 @@ app.post('/api/orders', async (req, res) => {
             await sendEmail(recipientEmail, name, customerSubject, customerEmailBody);
         }
 
+        // WhatsApp 1: Send payment request to customer
+        if (phone) {
+            const waBody = getWhatsAppPaymentRequest(order);
+            await sendWhatsApp(phone, waBody);
+        }
+
         // Email 2: Send alert notification to Admin
         const adminNotificationEmail = process.env.BREVO_SENDER_EMAIL || 'orders@sreshtanutrimithai.com';
         const adminSubject = `🚨 Sreshta Alert: New Order Received (#${order.id})`;
@@ -540,6 +641,12 @@ app.post('/api/create-order', async (req, res) => {
                 const subject = `Sreshta Nutri Mithai - Payment Confirmed! (Order #${order.id})`;
                 const emailBody = getPaymentConfirmedTemplate(order, itemsHtml);
                 await sendEmail(customerEmail, order.customer_name, subject, emailBody);
+            }
+
+            // Trigger WhatsApp confirmation
+            if (order.customer_phone) {
+                const waBody = getWhatsAppPaymentConfirmed(order);
+                await sendWhatsApp(order.customer_phone, waBody);
             }
 
             // Trigger admin notification email
@@ -636,6 +743,12 @@ app.post('/api/verify-payment', async (req, res) => {
             await sendEmail(customerEmail, order.customer_name, subject, emailBody);
         }
 
+        // Trigger WhatsApp confirmation
+        if (order.customer_phone) {
+            const waBody = getWhatsAppPaymentConfirmed(order);
+            await sendWhatsApp(order.customer_phone, waBody);
+        }
+
         // Send alert notification to Admin
         const itemsHtml = getItemsListHtml(order.items);
         const adminNotificationEmail = process.env.BREVO_SENDER_EMAIL || 'orders@sreshtanutrimithai.com';
@@ -727,6 +840,12 @@ app.post('/api/admin/orders/:id/confirm-payment', async (req, res) => {
             await sendEmail(customerEmail, order.customer_name, subject, emailBody);
         }
 
+        // Trigger WhatsApp confirmation
+        if (order.customer_phone) {
+            const waBody = getWhatsAppPaymentConfirmed(order);
+            await sendWhatsApp(order.customer_phone, waBody);
+        }
+
         res.json({ success: true, order: order });
     } catch (err) {
         console.error("Payment Confirmation Error:", err.message);
@@ -770,6 +889,12 @@ app.post('/api/admin/orders/:id/send-reminder', async (req, res) => {
             const subject = `⚠️ Sreshta Nutri Mithai - Payment Action Required (Order #${order.id})`;
             const emailBody = getPaymentReminderTemplate(order, itemsHtml);
             await sendEmail(customerEmail, order.customer_name, subject, emailBody);
+        }
+
+        // Trigger WhatsApp reminder
+        if (order.customer_phone) {
+            const waBody = getWhatsAppPaymentRequest(order);
+            await sendWhatsApp(order.customer_phone, waBody);
         }
 
         res.json({ success: true, message: "Reminder email sent." });
@@ -827,6 +952,12 @@ app.post('/api/admin/orders/:id/dispatch', async (req, res) => {
             await sendEmail(customerEmail, order.customer_name, subject, emailBody);
         }
 
+        // Trigger WhatsApp dispatch details
+        if (order.customer_phone) {
+            const waBody = getWhatsAppOrderDispatched(order);
+            await sendWhatsApp(order.customer_phone, waBody);
+        }
+
         res.json({ success: true, order: order });
     } catch (err) {
         console.error("Dispatch Error:", err.message);
@@ -881,6 +1012,18 @@ app.patch('/api/admin/orders/:id/status', async (req, res) => {
                 const subject = `🎉 Order Delivered Successfully! (Sreshta Order #${order.id})`;
                 const emailBody = getOrderDeliveredTemplate(order);
                 await sendEmail(customerEmail, order.customer_name, subject, emailBody);
+            }
+        }
+
+        // Trigger WhatsApp status updates
+        if (order.customer_phone) {
+            let waBody = '';
+            if (status === 'preparing') waBody = getWhatsAppPaymentConfirmed(order);
+            else if (status === 'packed') waBody = getWhatsAppOrderPacked(order);
+            else if (status === 'delivered') waBody = getWhatsAppOrderDelivered(order);
+            
+            if (waBody) {
+                await sendWhatsApp(order.customer_phone, waBody);
             }
         }
 
@@ -961,7 +1104,26 @@ app.post('/api/admin/orders/:id/notify', async (req, res) => {
             throw new Error(emailResult.error || "Email helper failed to send email.");
         }
 
-        res.json({ success: true, message: successMessage });
+        // Trigger manual status WhatsApp notification in parallel
+        if (order.customer_phone) {
+            let waBody = '';
+            if (status === 'received' || status === 'pending_payment') {
+                waBody = getWhatsAppPaymentRequest(order);
+            } else if (status === 'preparing') {
+                waBody = getWhatsAppPaymentConfirmed(order);
+            } else if (status === 'packed') {
+                waBody = getWhatsAppOrderPacked(order);
+            } else if (status === 'dispatched') {
+                waBody = getWhatsAppOrderDispatched(order);
+            } else if (status === 'delivered') {
+                waBody = getWhatsAppOrderDelivered(order);
+            }
+            if (waBody) {
+                await sendWhatsApp(order.customer_phone, waBody);
+            }
+        }
+
+        res.json({ success: true, message: successMessage + " (WhatsApp status alert also sent)." });
     } catch (err) {
         console.error("Notify trigger Error:", err.message);
         res.status(500).json({ error: `Failed to trigger notification email: ${err.message}` });
