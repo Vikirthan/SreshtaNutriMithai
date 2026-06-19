@@ -509,6 +509,7 @@ checkoutForm.addEventListener("submit", (e) => {
     .then(data => {
         // Read public key ID from Vite client environment variable
         const keyId = import.meta.env.VITE_RAZORPAY_KEY_ID;
+        console.log("Razorpay Checkout initialized with Client Key ID starting with: " + (keyId ? keyId.substring(0, 8) : "undefined"));
         if (!keyId) {
             throw new Error("VITE_RAZORPAY_KEY_ID environment variable is missing.");
         }

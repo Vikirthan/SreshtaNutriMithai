@@ -83,7 +83,7 @@ if (razorpayKeyId && razorpayKeySecret) {
         key_id: razorpayKeyId,
         key_secret: razorpayKeySecret
     });
-    console.log("Razorpay Client initialized successfully.");
+    console.log("Razorpay Client initialized with Key ID starting with: " + razorpayKeyId.substring(0, 8));
 } else {
     console.warn("WARNING: Razorpay Key ID and Secret are not configured in environment variables.");
 }
