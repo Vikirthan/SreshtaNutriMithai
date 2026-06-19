@@ -304,7 +304,7 @@ function getPaymentConfirmedTemplate(order, itemsHtml) {
         <h3 class="section-title">Payment Confirmed & Order Accepted!</h3>
         <p>Hi <strong>${order.customer_name}</strong>,</p>
         <p>Fantastic news! We have successfully verified your payment of <strong>₹${order.grand_total}.00</strong> for Order <strong>#${order.id}</strong>.</p>
-        <p>Your order is now **Accepted**, and our kitchen chefs have started preparing your fresh sweets! We handcraft every batch with pure cow ghee and natural ingredients. We will notify you by email as soon as your order is packed and dispatched.</p>
+        <p>Your order is now <strong>Accepted</strong>, and our kitchen chefs have started preparing your fresh sweets! We handcraft every batch with pure cow ghee and natural ingredients. We will notify you by email as soon as your order is packed and dispatched.</p>
         
         ${itemsHtml}
             <div class="total-row">
@@ -321,7 +321,7 @@ function getOrderPackedTemplate(order, itemsHtml) {
     const body = `
         <h3 class="section-title">Order Packed & Ready for Transit!</h3>
         <p>Hi <strong>${order.customer_name}</strong>,</p>
-        <p>Your Sreshta Nutri Mithai order (ID: #${order.id}) has been freshly prepared, quality-checked, and **Packed** securely! </p>
+        <p>Your Sreshta Nutri Mithai order (ID: #${order.id}) has been freshly prepared, quality-checked, and <strong>Packed</strong> securely! </p>
         <p>Our delivery partner is scheduled to pick up your package shortly. We will share your shipment tracking details and links as soon as they are generated.</p>
         
         ${itemsHtml}
@@ -343,7 +343,7 @@ function getOrderDispatchedTemplate(order, itemsHtml) {
     const body = `
         <h3 class="section-title">Your Order Has Been Dispatched!</h3>
         <p>Hi <strong>${order.customer_name}</strong>,</p>
-        <p>Sweets are on the way! Your order <strong>#${order.id}</strong> has been **Dispatched** and is out for delivery.</p>
+        <p>Sweets are on the way! Your order <strong>#${order.id}</strong> has been <strong>Dispatched</strong> and is out for delivery.</p>
         
         <div style="background-color: ${bgWarm}; border: 1px solid #E6DFD5; border-radius: 8px; padding: 20px; margin: 20px 0;">
             <h4 style="color: ${primaryColor}; margin-top:0; margin-bottom: 10px;">Shipment Details:</h4>
@@ -376,12 +376,12 @@ function getOrderDeliveredTemplate(order) {
     const body = `
         <h3 class="section-title">Delivered! Enjoy Your Healthy Treats</h3>
         <p>Hi <strong>${order.customer_name}</strong>,</p>
-        <p>Your Sreshta Nutri Mithai order (ID: #${order.id}) has been **Delivered** successfully!</p>
+        <p>Your Sreshta Nutri Mithai order (ID: #${order.id}) has been <strong>Delivered</strong> successfully!</p>
         <p>We hope you love the taste and the pure, traditional ingredients. Because our sweets are handcrafted without artificial preservatives or refined sugars, they satisfy your sweet tooth while nourishing your body.</p>
         
         <div style="background-color: rgba(226, 114, 37, 0.05); border: 2px dashed ${accentColor}; border-radius: 12px; padding: 25px; margin: 30px 0; text-align: center;">
             <h4 style="color: ${accentColor}; margin-top: 0; font-size: 18px; font-family: Georgia, serif;">🎁 Never Run Out of Healthy Sweets!</h4>
-            <p style="font-size: 14px; color: var(--color-text-dark); margin: 8px 0 16px 0; line-height: 1.5;">Join our **Monthly Sweet Subscription** plan. Receive your favorite Nutri Ladoos and Halwas fresh at your doorstep every month at special discounted rates.</p>
+            <p style="font-size: 14px; color: var(--color-text-dark); margin: 8px 0 16px 0; line-height: 1.5;">Join our <strong>Monthly Sweet Subscription</strong> plan. Receive your favorite Nutri Ladoos and Halwas fresh at your doorstep every month at special discounted rates.</p>
             <a href="${subscriptionUrl}" class="btn btn-primary" style="margin: 0; background-color: ${primaryColor}; border: 1px solid #D4AF37;">Subscribe for Monthly Delivery</a>
         </div>
 
