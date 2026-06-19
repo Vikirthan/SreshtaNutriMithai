@@ -541,7 +541,8 @@ app.post('/api/create-order', async (req, res) => {
             order_id: razorpayOrder.id,
             amount: razorpayOrder.amount,
             currency: razorpayOrder.currency,
-            local_order_id: order.id
+            local_order_id: order.id,
+            key_id: razorpayKeyId
         });
     } catch (err) {
         console.error("Create Order Error:", err);
