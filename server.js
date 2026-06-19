@@ -486,11 +486,8 @@ app.post('/api/create-order', async (req, res) => {
     if (!supabase) {
         return res.status(500).json({ error: "Database not configured." });
     }
-    if (!razorpay) {
-        return res.status(401).json({ error: "Razorpay credentials are missing or invalid." });
-    }
 
-    const { name, email, phone, address, pincode, items, subtotal, shippingFee, grandTotal } = req.body;
+    const { name, email, phone, address, pincode, items, subtotal, shippingFee, grandTotal, isTestOrder } = req.body;
 
     if (!name || !phone || !address || !pincode || !items || items.length === 0) {
         return res.status(400).json({ error: "Missing required order details." });
@@ -501,8 +498,10 @@ app.post('/api/create-order', async (req, res) => {
         return res.status(400).json({ error: "Invalid amount. Minimum amount is 100 paise (₹1)." });
     }
 
+    const initialStatus = isTestOrder ? 'preparing' : 'pending_payment';
+
     try {
-        // Insert order record into Supabase with order_status = 'pending_payment'
+        // Insert order record into Supabase
         const { data, error } = await supabase
             .from('orders')
             .insert([
@@ -516,7 +515,7 @@ app.post('/api/create-order', async (req, res) => {
                     subtotal: subtotal,
                     shipping_fee: shippingFee,
                     grand_total: grandTotal,
-                    order_status: 'pending_payment'
+                    order_status: initialStatus
                 }
             ])
             .select();
@@ -524,9 +523,36 @@ app.post('/api/create-order', async (req, res) => {
         if (error) throw error;
         
         const order = data[0];
-        console.log(`Created local pending order #${order.id}`);
+        console.log(`Created local order #${order.id} (Test Mode: ${isTestOrder})`);
 
-        // Call Razorpay API to create the order
+        if (isTestOrder) {
+            // Trigger confirmation email
+            const itemsHtml = getItemsListHtml(order.items);
+            const customerEmail = order.customer_email;
+            if (customerEmail && customerEmail !== 'customer@example.com') {
+                const subject = `Sreshta Nutri Mithai - Payment Confirmed! (Order #${order.id})`;
+                const emailBody = getPaymentConfirmedTemplate(order, itemsHtml);
+                await sendEmail(customerEmail, order.customer_name, subject, emailBody);
+            }
+
+            // Trigger admin notification email
+            const adminNotificationEmail = process.env.BREVO_SENDER_EMAIL || 'orders@sreshtanutrimithai.com';
+            const adminSubject = `🚨 Sreshta Alert: MOCK TEST Order Received (#${order.id})`;
+            const adminEmailBody = getAdminNotificationTemplate(order, itemsHtml);
+            await sendEmail(adminNotificationEmail, "Sreshta Admin", adminSubject, adminEmailBody);
+
+            return res.status(201).json({
+                success: true,
+                is_test: true,
+                local_order_id: order.id
+            });
+        }
+
+        // --- Razorpay Order Flow (for real/test gateway payments) ---
+        if (!razorpay) {
+            return res.status(401).json({ error: "Razorpay credentials are missing or invalid." });
+        }
+
         const options = {
             amount: amountInPaise,
             currency: 'INR',

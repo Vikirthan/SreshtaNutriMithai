@@ -274,11 +274,22 @@
                 <!-- Payment Method (Fixed info box) -->
                 <div class="payment-method-box">
                     <label class="payment-title">Payment Method</label>
-                    <div class="payment-selection-card active">
-                        <div class="payment-radio-circle active"></div>
-                        <div class="payment-info">
-                            <strong>Secure Online Payment</strong>
-                            <p>Pay instantly and securely using UPI, Credit/Debit Cards, NetBanking, or Wallets powered by Razorpay.</p>
+                    <div class="payment-options-group" style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px;">
+                        <!-- Razorpay Card -->
+                        <div class="payment-selection-card active" id="pay-method-razorpay" style="cursor: pointer;">
+                            <div class="payment-radio-circle active"></div>
+                            <div class="payment-info">
+                                <strong>Secure Online Payment</strong>
+                                <p>Pay instantly and securely using UPI, Credit/Debit Cards, NetBanking, or Wallets powered by Razorpay.</p>
+                            </div>
+                        </div>
+                        <!-- Demo Test Card -->
+                        <div class="payment-selection-card" id="pay-method-test" style="cursor: pointer;">
+                            <div class="payment-radio-circle"></div>
+                            <div class="payment-info">
+                                <strong>Simulated Test Order (Demo Mode)</strong>
+                                <p>Simulate a successful order to verify database storage and email delivery immediately without actual payment.</p>
+                            </div>
                         </div>
                     </div>
                 </div>

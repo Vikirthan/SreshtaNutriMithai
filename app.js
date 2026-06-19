@@ -129,6 +129,19 @@ function toggleCheckoutModal(open) {
         document.body.style.overflow = "hidden";
         // Close cart drawer to focus on form
         cartDrawer.classList.remove("active");
+        
+        // Reset default payment method to razorpay on open
+        selectedPaymentMethod = "razorpay";
+        const payRazorpayCard = document.getElementById("pay-method-razorpay");
+        const payTestCard = document.getElementById("pay-method-test");
+        const submitBtnText = document.querySelector("#checkout-submit-btn span");
+        if (payRazorpayCard && payTestCard) {
+            payRazorpayCard.classList.add("active");
+            payRazorpayCard.querySelector(".payment-radio-circle").classList.add("active");
+            payTestCard.classList.remove("active");
+            payTestCard.querySelector(".payment-radio-circle").classList.remove("active");
+            if (submitBtnText) submitBtnText.textContent = "Pay Securely with Razorpay";
+        }
     } else {
         checkoutModal.classList.remove("active");
         pageOverlay.classList.remove("active");
@@ -151,6 +164,40 @@ modalClose.addEventListener("click", () => toggleCheckoutModal(false));
 pageOverlay.addEventListener("click", () => {
     toggleCartDrawer(false);
     toggleCheckoutModal(false);
+});
+
+// Selected Payment Method State
+let selectedPaymentMethod = "razorpay";
+
+// Payment method selection listeners
+document.addEventListener("DOMContentLoaded", () => {
+    const payRazorpayCard = document.getElementById("pay-method-razorpay");
+    const payTestCard = document.getElementById("pay-method-test");
+    const submitBtnText = document.querySelector("#checkout-submit-btn span");
+
+    if (payRazorpayCard && payTestCard) {
+        payRazorpayCard.addEventListener("click", () => {
+            payRazorpayCard.classList.add("active");
+            payRazorpayCard.querySelector(".payment-radio-circle").classList.add("active");
+            
+            payTestCard.classList.remove("active");
+            payTestCard.querySelector(".payment-radio-circle").classList.remove("active");
+            
+            selectedPaymentMethod = "razorpay";
+            if (submitBtnText) submitBtnText.textContent = "Pay Securely with Razorpay";
+        });
+        
+        payTestCard.addEventListener("click", () => {
+            payTestCard.classList.add("active");
+            payTestCard.querySelector(".payment-radio-circle").classList.add("active");
+            
+            payRazorpayCard.classList.remove("active");
+            payRazorpayCard.querySelector(".payment-radio-circle").classList.remove("active");
+            
+            selectedPaymentMethod = "test";
+            if (submitBtnText) submitBtnText.textContent = "Place Simulated Test Order";
+        });
+    }
 });
 
 // ==========================================================================
@@ -484,13 +531,14 @@ checkoutForm.addEventListener("submit", (e) => {
         items: cart,
         subtotal,
         shippingFee,
-        grandTotal
+        grandTotal,
+        isTestOrder: (selectedPaymentMethod === 'test')
     };
 
     const submitBtn = document.getElementById("checkout-submit-btn");
     const originalBtnText = submitBtn.innerHTML;
     submitBtn.disabled = true;
-    submitBtn.innerHTML = "Initiating Secure Payment...";
+    submitBtn.innerHTML = selectedPaymentMethod === 'test' ? "Placing Test Order..." : "Initiating Secure Payment...";
 
     fetch('/api/create-order', {
         method: 'POST',
@@ -507,6 +555,18 @@ checkoutForm.addEventListener("submit", (e) => {
         return res.json();
     })
     .then(data => {
+        if (data.is_test) {
+            // Clear cart and clean state
+            cart = [];
+            saveCart();
+            
+            // Close modal
+            toggleCheckoutModal(false);
+            
+            // Show success confirmation message
+            alert(`Simulated Test Order #${data.local_order_id} placed successfully! Database records created and test emails triggered.`);
+            return;
+        }
         // Use the key ID returned by the backend, or fallback to the Vite client environment variable
         const keyId = data.key_id || import.meta.env.VITE_RAZORPAY_KEY_ID;
         console.log("Razorpay Checkout initialized with Client Key ID starting with: " + (keyId ? keyId.substring(0, 8) : "undefined"));
