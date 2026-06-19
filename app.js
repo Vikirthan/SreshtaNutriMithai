@@ -499,9 +499,10 @@ checkoutForm.addEventListener("submit", (e) => {
         },
         body: JSON.stringify(orderData)
     })
-    .then(res => {
+    .then(async res => {
         if (!res.ok) {
-            throw new Error("Failed to create order on server.");
+            const errData = await res.json().catch(() => ({}));
+            throw new Error(errData.error || "Failed to create order on server.");
         }
         return res.json();
     })
@@ -537,9 +538,10 @@ checkoutForm.addEventListener("submit", (e) => {
                         local_order_id: data.local_order_id
                     })
                 })
-                .then(verifyRes => {
+                .then(async verifyRes => {
                     if (!verifyRes.ok) {
-                        throw new Error("Payment verification failed on server.");
+                        const errData = await verifyRes.json().catch(() => ({}));
+                        throw new Error(errData.error || "Payment verification failed on server.");
                     }
                     return verifyRes.json();
                 })
