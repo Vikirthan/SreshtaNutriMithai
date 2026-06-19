@@ -487,12 +487,12 @@ checkoutForm.addEventListener("submit", (e) => {
         grandTotal
     };
 
-    const submitBtn = document.getElementById("whatsapp-submit-btn");
+    const submitBtn = document.getElementById("checkout-submit-btn");
     const originalBtnText = submitBtn.innerHTML;
     submitBtn.disabled = true;
-    submitBtn.innerHTML = "Recording Order Details...";
+    submitBtn.innerHTML = "Initiating Secure Payment...";
 
-    fetch('/api/orders', {
+    fetch('/api/create-order', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
@@ -501,103 +501,101 @@ checkoutForm.addEventListener("submit", (e) => {
     })
     .then(res => {
         if (!res.ok) {
-            throw new Error("Failed to record order on server.");
+            throw new Error("Failed to create order on server.");
         }
         return res.json();
     })
     .then(data => {
-        const orderId = data.orderId || "PENDING";
-        
-        // Format cart items text
-        let itemsText = "";
-        cart.forEach(item => {
-            itemsText += `\u{1F538} *${item.name}* (${item.weight})\n   Quantity: ${item.quantity} x ₹${item.price} = *₹${item.price * item.quantity}*\n\n`;
+        // Read public key ID from Vite client environment variable
+        const keyId = import.meta.env.VITE_RAZORPAY_KEY_ID;
+        if (!keyId) {
+            throw new Error("VITE_RAZORPAY_KEY_ID environment variable is missing.");
+        }
+
+        const options = {
+            key: keyId,
+            amount: data.amount,
+            currency: data.currency,
+            name: "Sreshta Nutri Mithai",
+            description: "Handcrafted Healthy Indian Sweets",
+            image: "images/logo.png",
+            order_id: data.order_id,
+            handler: function (response) {
+                // Verify payment signature on backend
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = "Verifying Payment...";
+                
+                fetch('/api/verify-payment', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        razorpay_payment_id: response.razorpay_payment_id,
+                        razorpay_order_id: response.razorpay_order_id,
+                        razorpay_signature: response.razorpay_signature,
+                        local_order_id: data.local_order_id
+                    })
+                })
+                .then(verifyRes => {
+                    if (!verifyRes.ok) {
+                        throw new Error("Payment verification failed on server.");
+                    }
+                    return verifyRes.json();
+                })
+                .then(() => {
+                    // Clear cart and clean state
+                    cart = [];
+                    saveCart();
+                    
+                    // Close modal
+                    toggleCheckoutModal(false);
+                    
+                    // Show success confirmation message
+                    alert(`Thank you! Your payment is successful and order #${data.local_order_id} has been placed.`);
+                })
+                .catch(verifyErr => {
+                    console.error("Verification error:", verifyErr);
+                    alert(`Payment was successful, but verification failed: ${verifyErr.message}. Please contact support with Payment ID: ${response.razorpay_payment_id}`);
+                })
+                .finally(() => {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalBtnText;
+                });
+            },
+            prefill: {
+                name: name,
+                email: email,
+                contact: phone
+            },
+            theme: {
+                color: "#3E2718"
+            },
+            modal: {
+                ondismiss: function () {
+                    alert("Payment checkout was cancelled.");
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalBtnText;
+                }
+            }
+        };
+
+        const rzp = new Razorpay(options);
+        rzp.on('payment.failed', function (response) {
+            alert(`Payment failed: ${response.error.description}`);
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalBtnText;
         });
-        
-        // Format the final WhatsApp Message including Order ID
-        const rawMessage = 
-`*\u{1F195} NEW ORDER: SRESHTA NUTRI MITHAI*
---------------------------------------------
-*📌 Order ID:* #${orderId}
---------------------------------------------
-*\u{1F464} CUSTOMER DETAILS*
-*Name:* ${name}
-*Email:* ${email}
-*Phone/WhatsApp:* ${phone}
-*Pincode:* ${pincode}
-*Delivery Address:* ${address}
-
---------------------------------------------
-*\u{1F6D2} ORDERED ITEMS*
-${itemsText}--------------------------------------------
-*\u{1F4B0} BILLING SUMMARY*
-*Items Subtotal:* ₹${subtotal}.00
-*Shipping Fee:* ${shippingFee === 0 ? "FREE" : "₹" + shippingFee + ".00"}
-*Grand Total Amount:* *₹${grandTotal}.00*
-*Payment Method:* Online Payment Only (UPI)
-
---------------------------------------------
-_Note: My order is recorded on your portal under ID #${orderId}. Please verify and send me the online payment QR code so I can complete payment. Thank you!_`;
-
-        // Encode to URL component
-        const encodedText = encodeURIComponent(rawMessage);
-        const whatsappUrl = `https://wa.me/${CLIENT_WHATSAPP_NUMBER}?text=${encodedText}`;
-        
-        // Open in a new window/tab
-        window.open(whatsappUrl, "_blank");
-        
-        // Clear cart and clean state
-        cart = [];
-        saveCart();
-        
-        // Close modal
-        toggleCheckoutModal(false);
-        
-        // Show user a sweet confirmation message
-        alert(`Thank you! Your order has been recorded (ID: #${orderId}). Redirecting you to WhatsApp to complete your online payment.`);
+        rzp.open();
     })
     .catch(err => {
-        console.error("Order recording failed:", err);
-        alert("There was an issue saving your order details to the database. We will still open WhatsApp to place your order directly with Sreshta.");
-        
-        // Fallback: Proceed with WhatsApp directly even if database fails
-        let itemsText = "";
-        cart.forEach(item => {
-            itemsText += `\u{1F538} *${item.name}* (${item.weight})\n   Quantity: ${item.quantity} x ₹${item.price} = *₹${item.price * item.quantity}*\n\n`;
-        });
-        
-        const rawMessage = 
-`*\u{1F195} NEW ORDER: SRESHTA NUTRI MITHAI*
---------------------------------------------
-*\u{1F464} CUSTOMER DETAILS*
-*Name:* ${name}
-*Email:* ${email}
-*Phone/WhatsApp:* ${phone}
-*Pincode:* ${pincode}
-*Delivery Address:* ${address}
-
---------------------------------------------
-*\u{1F6D2} ORDERED ITEMS*
-${itemsText}--------------------------------------------
-*\u{1F4B0} BILLING SUMMARY*
-*Items Subtotal:* ₹${subtotal}.00
-*Shipping Fee:* ${shippingFee === 0 ? "FREE" : "₹" + shippingFee + ".00"}
-*Grand Total Amount:* *₹${grandTotal}.00*
-*Payment Method:* Online Payment Only (UPI)
-
---------------------------------------------
-_Note: Please send me the online payment link / QR code so I can complete my payment. Thank you!_`;
-        
-        const encodedText = encodeURIComponent(rawMessage);
-        window.open(`https://wa.me/${CLIENT_WHATSAPP_NUMBER}?text=${encodedText}`, "_blank");
-        
-        cart = [];
-        saveCart();
-        toggleCheckoutModal(false);
-    })
-    .finally(() => {
+        console.error("Order creation failed:", err);
+        alert(`Failed to initiate payment: ${err.message}`);
         submitBtn.disabled = false;
         submitBtn.innerHTML = originalBtnText;
+    })
+    .finally(() => {
+        // Only reset if we didn't successfully launch Razorpay modal (since data.order_id launches asynchronous payment flow)
     });
 });
 

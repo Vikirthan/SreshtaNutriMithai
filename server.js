@@ -72,6 +72,22 @@ if (supabaseUrl && supabaseAnonKey) {
     console.warn("WARNING: Supabase URL and Anon Key are not configured in environment variables.");
 }
 
+// Initialize Razorpay Client
+const Razorpay = require('razorpay');
+const razorpayKeyId = process.env.RAZORPAY_KEY_ID;
+const razorpayKeySecret = process.env.RAZORPAY_KEY_SECRET;
+
+let razorpay;
+if (razorpayKeyId && razorpayKeySecret) {
+    razorpay = new Razorpay({
+        key_id: razorpayKeyId,
+        key_secret: razorpayKeySecret
+    });
+    console.log("Razorpay Client initialized successfully.");
+} else {
+    console.warn("WARNING: Razorpay Key ID and Secret are not configured in environment variables.");
+}
+
 // Serve static frontend files
 app.use(express.static('.'));
 app.use(express.static('public'));
@@ -462,6 +478,141 @@ app.post('/api/orders', async (req, res) => {
     } catch (err) {
         console.error("Database Insert Error:", err.message);
         res.status(500).json({ error: "Failed to record order details." });
+    }
+});
+
+// 1b. Create Razorpay Payment Order
+app.post('/api/create-order', async (req, res) => {
+    if (!supabase) {
+        return res.status(500).json({ error: "Database not configured." });
+    }
+    if (!razorpay) {
+        return res.status(401).json({ error: "Razorpay credentials are missing or invalid." });
+    }
+
+    const { name, email, phone, address, pincode, items, subtotal, shippingFee, grandTotal } = req.body;
+
+    if (!name || !phone || !address || !pincode || !items || items.length === 0) {
+        return res.status(400).json({ error: "Missing required order details." });
+    }
+
+    const amountInPaise = Math.round((grandTotal || 0) * 100);
+    if (amountInPaise < 100) {
+        return res.status(400).json({ error: "Invalid amount. Minimum amount is 100 paise (₹1)." });
+    }
+
+    try {
+        // Insert order record into Supabase with order_status = 'pending_payment'
+        const { data, error } = await supabase
+            .from('orders')
+            .insert([
+                {
+                    customer_name: name,
+                    customer_email: email,
+                    customer_phone: phone,
+                    customer_address: address,
+                    customer_pincode: pincode,
+                    items: items,
+                    subtotal: subtotal,
+                    shipping_fee: shippingFee,
+                    grand_total: grandTotal,
+                    order_status: 'pending_payment'
+                }
+            ])
+            .select();
+
+        if (error) throw error;
+        
+        const order = data[0];
+        console.log(`Created local pending order #${order.id}`);
+
+        // Call Razorpay API to create the order
+        const options = {
+            amount: amountInPaise,
+            currency: 'INR',
+            receipt: `order_${order.id}`
+        };
+
+        const razorpayOrder = await razorpay.orders.create(options);
+        console.log(`Razorpay order ${razorpayOrder.id} created for local order #${order.id}`);
+
+        res.status(201).json({
+            success: true,
+            order_id: razorpayOrder.id,
+            amount: razorpayOrder.amount,
+            currency: razorpayOrder.currency,
+            local_order_id: order.id
+        });
+    } catch (err) {
+        console.error("Create Order Error:", err);
+        if (err.statusCode === 401 || (err.error && err.error.code === 'BAD_REQUEST_ERROR' && /api key/i.test(err.error.description || ''))) {
+            return res.status(401).json({ error: "Razorpay authentication failed." });
+        }
+        res.status(500).json({ error: "Failed to create payment order." });
+    }
+});
+
+// 1c. Verify Razorpay Payment Signature
+app.post('/api/verify-payment', async (req, res) => {
+    if (!supabase) {
+        return res.status(500).json({ error: "Database not configured." });
+    }
+
+    const { razorpay_payment_id, razorpay_order_id, razorpay_signature, local_order_id } = req.body;
+
+    if (!razorpay_payment_id || !razorpay_order_id || !razorpay_signature || !local_order_id) {
+        return res.status(400).json({ error: "Missing required payment verification fields." });
+    }
+
+    try {
+        // Verify payment signature
+        const crypto = require('crypto');
+        const generated_signature = crypto
+            .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
+            .update(razorpay_order_id + "|" + razorpay_payment_id)
+            .digest('hex');
+
+        if (generated_signature !== razorpay_signature) {
+            console.warn(`Signature verification failed for order #${local_order_id}`);
+            return res.status(400).json({ error: "Signature mismatch. Payment not verified." });
+        }
+
+        console.log(`Payment signature verified successfully for order #${local_order_id}`);
+
+        // Update database order_status to 'preparing' (which represents paid status)
+        const { data, error } = await supabase
+            .from('orders')
+            .update({ order_status: 'preparing' })
+            .eq('id', local_order_id)
+            .select();
+
+        if (error) throw error;
+        if (data.length === 0) {
+            return res.status(404).json({ error: "Order not found." });
+        }
+
+        const order = data[0];
+
+        // Send payment confirmation email to client
+        const customerEmail = order.customer_email;
+        if (customerEmail && customerEmail !== 'customer@example.com') {
+            const itemsHtml = getItemsListHtml(order.items);
+            const subject = `Sreshta Nutri Mithai - Payment Confirmed! (Order #${order.id})`;
+            const emailBody = getPaymentConfirmedTemplate(order, itemsHtml);
+            await sendEmail(customerEmail, order.customer_name, subject, emailBody);
+        }
+
+        // Send alert notification to Admin
+        const itemsHtml = getItemsListHtml(order.items);
+        const adminNotificationEmail = process.env.BREVO_SENDER_EMAIL || 'orders@sreshtanutrimithai.com';
+        const adminSubject = `🚨 Sreshta Alert: PAID Order Received (#${order.id})`;
+        const adminEmailBody = getAdminNotificationTemplate(order, itemsHtml);
+        await sendEmail(adminNotificationEmail, "Sreshta Admin", adminSubject, adminEmailBody);
+
+        res.json({ success: true, message: "Payment verified successfully." });
+    } catch (err) {
+        console.error("Verify Payment Error:", err.message);
+        res.status(500).json({ error: "Failed to verify payment." });
     }
 });
 
