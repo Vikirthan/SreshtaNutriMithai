@@ -1453,8 +1453,26 @@ a {
     }
     
     .checkout-modal-container {
-        width: 95vw;
-        border-radius: var(--border-radius-md);
+        width: 100vw;
+        max-width: 100vw;
+        height: 100vh;
+        max-height: 100vh;
+        top: 0;
+        left: 0;
+        transform: translateY(100%);
+        border-radius: 0;
+        transition: transform var(--transition-speed) var(--transition-curve), opacity var(--transition-speed);
+    }
+    
+    .checkout-modal-container.active {
+        transform: translateY(0);
+        opacity: 1;
+        pointer-events: auto;
+    }
+    
+    .checkout-modal-body {
+        padding: 16px;
+        -webkit-overflow-scrolling: touch;
     }
     
     .form-row {
