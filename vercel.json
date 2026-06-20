@@ -19,6 +19,10 @@
       "dest": "server.js"
     },
     {
+      "src": "/wp-json/(.*)",
+      "dest": "server.js"
+    },
+    {
       "src": "/(.*)",
       "dest": "/$1"
     }
