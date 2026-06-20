@@ -752,6 +752,119 @@ body {
 
 
 /* ==========================================================================
+   REALTIME TOAST NOTIFICATIONS
+   ========================================================================== */
+.toast-container {
+    position: fixed;
+    top: 24px;
+    right: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    z-index: 9999;
+    max-width: 380px;
+    width: 90vw;
+}
+
+.toast-alert {
+    background: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(195, 139, 49, 0.3);
+    border-left: 6px solid var(--color-accent);
+    border-radius: var(--border-radius-md);
+    padding: 16px;
+    box-shadow: 0 10px 25px rgba(62, 39, 24, 0.15);
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    animation: toastSlideIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    transition: all 0.35s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.toast-alert.fade-out {
+    animation: toastFadeOut 0.3s ease forwards;
+}
+
+.toast-icon {
+    font-size: 20px;
+    line-height: 1;
+    animation: pulseIcon 1.5s infinite alternate;
+}
+
+.toast-body {
+    flex: 1;
+}
+
+.toast-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+}
+
+.toast-title {
+    font-weight: 700;
+    color: var(--color-primary);
+    font-size: 14px;
+}
+
+.toast-close-btn {
+    background: none;
+    border: none;
+    color: var(--color-text-muted);
+    font-size: 16px;
+    cursor: pointer;
+    padding: 0;
+    line-height: 1;
+    transition: color 0.2s;
+}
+
+.toast-close-btn:hover {
+    color: var(--color-text-dark);
+}
+
+.toast-desc {
+    font-size: 13px;
+    color: var(--color-text-dark);
+    line-height: 1.4;
+}
+
+.toast-highlight {
+    font-weight: 700;
+    color: var(--color-accent);
+}
+
+@keyframes toastSlideIn {
+    from {
+        opacity: 0;
+        transform: translateX(50px) scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0) scale(1);
+    }
+}
+
+@keyframes toastFadeOut {
+    from {
+        opacity: 1;
+        transform: translateY(0);
+    }
+    to {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+}
+
+@keyframes pulseIcon {
+    from { transform: scale(1); }
+    to { transform: scale(1.15); }
+}
+
+/* ==========================================================================
    RESPONSIVENESS
    ========================================================================== */
 @media (max-width: 1024px) {

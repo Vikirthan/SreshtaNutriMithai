@@ -87,6 +87,13 @@ document.addEventListener("DOMContentLoaded", () => {
         
         submitDispatchDetails(orderId, courier, tracking, link, email);
     });
+
+    // Setup automated real-time polling for new orders (every 12 seconds)
+    setInterval(() => {
+        if (sessionToken) {
+            fetchOrders();
+        }
+    }, 12000);
 });
 
 function checkAuthentication() {
@@ -158,7 +165,19 @@ async function fetchOrders() {
 
         const data = await response.json();
         if (response.ok && data.success) {
-            orders = data.orders || [];
+            const newOrders = data.orders || [];
+            // If this is NOT the first load, check for newly arrived orders
+            if (orders.length > 0) {
+                const existingIds = new Set(orders.map(o => o.id));
+                const newlyAddedOrders = newOrders.filter(o => !existingIds.has(o.id));
+                
+                if (newlyAddedOrders.length > 0) {
+                    newlyAddedOrders.forEach(order => {
+                        showNewOrderAlert(order);
+                    });
+                }
+            }
+            orders = newOrders;
             updateMetrics();
             filterAndRenderTable();
         } else {
@@ -695,4 +714,75 @@ window.resetDispatchModal = function() {
     inputTrackingId.value = "";
     inputTrackingLink.value = "";
 };
+
+// Web Audio API notification chime generator
+function playOrderChime() {
+    try {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        
+        // Note 1: E5
+        const osc1 = audioCtx.createOscillator();
+        const gain1 = audioCtx.createGain();
+        osc1.connect(gain1);
+        gain1.connect(audioCtx.destination);
+        osc1.frequency.setValueAtTime(659.25, audioCtx.currentTime); // E5
+        gain1.gain.setValueAtTime(0, audioCtx.currentTime);
+        gain1.gain.linearRampToValueAtTime(0.2, audioCtx.currentTime + 0.05);
+        gain1.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
+        osc1.start(audioCtx.currentTime);
+        osc1.stop(audioCtx.currentTime + 0.4);
+        
+        // Note 2: A5 (delayed slightly)
+        setTimeout(() => {
+            const osc2 = audioCtx.createOscillator();
+            const gain2 = audioCtx.createGain();
+            osc2.connect(gain2);
+            gain2.connect(audioCtx.destination);
+            osc2.frequency.setValueAtTime(880.00, audioCtx.currentTime); // A5
+            gain2.gain.setValueAtTime(0, audioCtx.currentTime);
+            gain2.gain.linearRampToValueAtTime(0.2, audioCtx.currentTime + 0.05);
+            gain2.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.6);
+            osc2.start(audioCtx.currentTime);
+            osc2.stop(audioCtx.currentTime + 0.6);
+        }, 120);
+        
+    } catch (e) {
+        console.warn("Audio Context blocked or failed to play chime:", e);
+    }
+}
+
+// Function to display a premium floating toast alert on new orders
+function showNewOrderAlert(order) {
+    playOrderChime();
+    
+    const toastContainer = document.getElementById("toast-container");
+    if (!toastContainer) return;
+    
+    const toast = document.createElement("div");
+    toast.className = "toast-alert";
+    
+    // Build toast internal structure
+    toast.innerHTML = `
+        <div class="toast-icon">🔔</div>
+        <div class="toast-body">
+            <div class="toast-header">
+                <span class="toast-title">New Order Received!</span>
+                <button class="toast-close-btn" onclick="this.parentElement.parentElement.parentElement.remove()">&times;</button>
+            </div>
+            <div class="toast-desc">
+                Order <span class="toast-highlight">#${order.id}</span> placed by <span class="toast-highlight">${order.customer_name}</span>. Total: <span class="toast-highlight">₹${order.grand_total}</span>
+            </div>
+        </div>
+    `;
+    
+    toastContainer.appendChild(toast);
+    
+    // Auto-remove toast after 8 seconds
+    setTimeout(() => {
+        toast.classList.add("fade-out");
+        setTimeout(() => {
+            toast.remove();
+        }, 300);
+    }, 8000);
+}
 
