@@ -966,7 +966,8 @@ app.post('/api/admin/orders/:id/dispatch', async (req, res) => {
 });
 
 // 7. General Dropdown Update Status Endpoint (Admin panel)
-// Handles other changes like 'packed' or 'delivered'
+// ONLY updates the database — NO notifications sent automatically.
+// Admin must click "Send Update" button separately to notify the customer.
 app.patch('/api/admin/orders/:id/status', async (req, res) => {
     if (!supabase) {
         return res.status(500).json({ error: "Database not configured." });
@@ -978,7 +979,7 @@ app.patch('/api/admin/orders/:id/status', async (req, res) => {
     }
 
     const orderId = req.params.id;
-    const { status, email } = req.body;
+    const { status } = req.body;
 
     try {
         const { data, error } = await supabase
@@ -993,44 +994,67 @@ app.patch('/api/admin/orders/:id/status', async (req, res) => {
         }
 
         const order = data[0];
-        console.log(`Order #${orderId} status updated to: ${status}`);
-
-        // Trigger specific status emails
-        const customerEmail = order.customer_email || email;
-        if (customerEmail && customerEmail !== 'customer@example.com') {
-            const itemsHtml = getItemsListHtml(order.items);
-            
-            if (status === 'preparing') {
-                const subject = `Sreshta Nutri Mithai - Payment Confirmed! (Order #${order.id})`;
-                const emailBody = getPaymentConfirmedTemplate(order, itemsHtml);
-                await sendEmail(customerEmail, order.customer_name, subject, emailBody);
-            } else if (status === 'packed') {
-                const subject = `📦 Fresh Batch Packed! Sreshta Order #${order.id}`;
-                const emailBody = getOrderPackedTemplate(order, itemsHtml);
-                await sendEmail(customerEmail, order.customer_name, subject, emailBody);
-            } else if (status === 'delivered') {
-                const subject = `🎉 Order Delivered Successfully! (Sreshta Order #${order.id})`;
-                const emailBody = getOrderDeliveredTemplate(order);
-                await sendEmail(customerEmail, order.customer_name, subject, emailBody);
-            }
-        }
-
-        // Trigger WhatsApp status updates
-        if (order.customer_phone) {
-            let waBody = '';
-            if (status === 'preparing') waBody = getWhatsAppPaymentConfirmed(order);
-            else if (status === 'packed') waBody = getWhatsAppOrderPacked(order);
-            else if (status === 'delivered') waBody = getWhatsAppOrderDelivered(order);
-            
-            if (waBody) {
-                await sendWhatsApp(order.customer_phone, waBody);
-            }
-        }
+        console.log(`Order #${orderId} status updated to: ${status} (DB only, no notification sent)`);
 
         res.json({ success: true, order: order });
     } catch (err) {
         console.error("Database Update Error:", err.message);
         res.status(500).json({ error: "Failed to update order status." });
+    }
+});
+
+// 7b. Send WhatsApp message via server API (Admin Quick Action)
+app.post('/api/admin/orders/:id/whatsapp', async (req, res) => {
+    if (!supabase) {
+        return res.status(500).json({ error: "Database not configured." });
+    }
+
+    const authHeader = req.headers.authorization;
+    if (authHeader !== "Bearer sreshta-admin-authenticated-session") {
+        return res.status(403).json({ error: "Access Denied." });
+    }
+
+    const orderId = req.params.id;
+    const { message } = req.body;
+
+    try {
+        const { data, error } = await supabase
+            .from('orders')
+            .select('*')
+            .eq('id', orderId);
+
+        if (error) throw error;
+        if (data.length === 0) {
+            return res.status(404).json({ error: "Order not found." });
+        }
+
+        const order = data[0];
+
+        if (!order.customer_phone) {
+            return res.status(400).json({ error: "No phone number on this order." });
+        }
+
+        // Use custom message if provided, otherwise send status-appropriate message
+        let waBody = message || '';
+        if (!waBody) {
+            const status = order.order_status;
+            if (status === 'received' || status === 'pending_payment') waBody = getWhatsAppPaymentRequest(order);
+            else if (status === 'preparing') waBody = getWhatsAppPaymentConfirmed(order);
+            else if (status === 'packed') waBody = getWhatsAppOrderPacked(order);
+            else if (status === 'dispatched') waBody = getWhatsAppOrderDispatched(order);
+            else if (status === 'delivered') waBody = getWhatsAppOrderDelivered(order);
+            else waBody = `Hello ${order.customer_name}, this is an update regarding your Sreshta Nutri Mithai Order #${order.id}.`;
+        }
+
+        const result = await sendWhatsApp(order.customer_phone, waBody);
+        if (!result.success) {
+            throw new Error(result.error || "WhatsApp service failed.");
+        }
+
+        res.json({ success: true, message: `WhatsApp message sent to ${order.customer_phone} via server.` });
+    } catch (err) {
+        console.error("WhatsApp Send Error:", err.message);
+        res.status(500).json({ error: `Failed to send WhatsApp: ${err.message}` });
     }
 });
 

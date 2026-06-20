@@ -521,7 +521,7 @@ function renderTableRows(orderRecords) {
             <button class="btn-action-notify" onclick="sendCustomerNotificationHandler(${order.id}, '${email}')">
                 ✉️ Notify
             </button>
-            <button class="btn-action-wa" onclick="contactCustomerWhatsApp('${order.customer_phone}', ${order.id})">
+            <button class="btn-action-wa" onclick="sendWhatsAppViaServerHandler(${order.id})">
                 💬 WhatsApp
             </button>
             <button class="btn-action-delete" onclick="deleteOrderHandler(${order.id})">
@@ -552,6 +552,7 @@ function renderTableRows(orderRecords) {
                     <select 
                         class="status-selector" 
                         data-status="${order.order_status}" 
+                        data-original="${order.order_status}"
                         onchange="changeOrderStatusHandler(this, ${order.id}, '${email}')"
                     >
                         <option value="received" ${order.order_status === 'received' ? 'selected' : ''}>Received</option>
@@ -560,6 +561,9 @@ function renderTableRows(orderRecords) {
                         <option value="dispatched" ${order.order_status === 'dispatched' ? 'selected' : ''}>Dispatched</option>
                         <option value="delivered" ${order.order_status === 'delivered' ? 'selected' : ''}>Delivered</option>
                     </select>
+                    <button class="btn-send-update hidden" id="send-update-${order.id}" onclick="sendStatusUpdateHandler(${order.id}, '${email}')">
+                        📤 Send Update
+                    </button>
                 </td>
                 <td>
                     <div class="actions-cell-wrapper">
@@ -571,7 +575,7 @@ function renderTableRows(orderRecords) {
     }).join('');
 }
 
-// Dropdown change trigger
+// Dropdown change trigger — NOW only updates DB, does NOT send notifications
 window.changeOrderStatusHandler = function(selectElement, orderId, email) {
     const newStatus = selectElement.value;
     
@@ -581,8 +585,73 @@ window.changeOrderStatusHandler = function(selectElement, orderId, email) {
         trackingOrderEmailInput.value = email;
         trackingModal.classList.remove("hidden");
     } else {
-        selectElement.setAttribute("data-status", newStatus); // updates visual badge class
+        selectElement.setAttribute("data-status", newStatus);
         updateOrderStatus(orderId, newStatus, email);
+        
+        // Show the "Send Update" button below the dropdown
+        const sendBtn = document.getElementById(`send-update-${orderId}`);
+        if (sendBtn) {
+            sendBtn.classList.remove("hidden");
+        }
+    }
+};
+
+// Send Update button handler — sends email + WhatsApp notification for current status
+window.sendStatusUpdateHandler = async function(orderId, email) {
+    if (!confirm(`Send email + WhatsApp notification to customer for Order #${orderId}?`)) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/admin/orders/${orderId}/notify`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${sessionToken}`
+            },
+            body: JSON.stringify({ email })
+        });
+        
+        const data = await response.json();
+        if (response.ok && data.success) {
+            // Hide the send update button after successful send
+            const sendBtn = document.getElementById(`send-update-${orderId}`);
+            if (sendBtn) sendBtn.classList.add("hidden");
+            alert(data.message || `Customer notified for Order #${orderId}.`);
+        } else {
+            alert(data.error || "Failed to send notification.");
+        }
+    } catch (err) {
+        console.error(err);
+        alert("Server error sending notification.");
+    }
+};
+
+// WhatsApp via Server API handler (replaces old wa.me web link)
+window.sendWhatsAppViaServerHandler = async function(orderId) {
+    if (!confirm(`Send WhatsApp status message to customer for Order #${orderId} via server?`)) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/admin/orders/${orderId}/whatsapp`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${sessionToken}`
+            },
+            body: JSON.stringify({})
+        });
+        
+        const data = await response.json();
+        if (response.ok && data.success) {
+            alert(data.message || `WhatsApp sent for Order #${orderId}.`);
+        } else {
+            alert(data.error || "Failed to send WhatsApp.");
+        }
+    } catch (err) {
+        console.error(err);
+        alert("Server error sending WhatsApp.");
     }
 };
 
@@ -603,11 +672,11 @@ window.deleteOrderHandler = function(orderId) {
     deleteOrder(orderId);
 };
 
-// WhatsApp contact helper
+// WhatsApp contact helper — kept as fallback but primary flow is via server now
 window.contactCustomerWhatsApp = function(phone, orderId) {
     let cleanPhone = phone.replace(/\D/g, "");
     if (cleanPhone.length === 10) {
-        cleanPhone = "91" + cleanPhone; // India country code
+        cleanPhone = "91" + cleanPhone;
     }
     const message = encodeURIComponent(`Hello, I am contacting you regarding your Sreshta Nutri Mithai Order #${orderId}.`);
     window.open(`https://wa.me/${cleanPhone}?text=${message}`, "_blank");

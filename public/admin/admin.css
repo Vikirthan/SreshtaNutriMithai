@@ -568,6 +568,40 @@ body {
     background-color: #DC2626;
 }
 
+/* Send Update button — appears below status dropdown after a status change */
+.btn-send-update {
+    display: block;
+    margin-top: 8px;
+    padding: 6px 14px;
+    background: linear-gradient(135deg, #F59E0B, #D97706);
+    color: #FFFFFF;
+    border: none;
+    border-radius: var(--border-radius-sm);
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    animation: fadeInBtn 0.3s ease;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    width: 100%;
+}
+
+.btn-send-update:hover {
+    background: linear-gradient(135deg, #D97706, #B45309);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(217, 119, 6, 0.3);
+}
+
+.btn-send-update.hidden {
+    display: none;
+}
+
+@keyframes fadeInBtn {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
 /* Bulk Actions Bar Styles */
 .bulk-actions-bar {
     background-color: #FEF2F2; /* Soft red tint */
