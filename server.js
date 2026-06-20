@@ -1473,8 +1473,271 @@ async function autoPushOrderToNimbusPost(order) {
 }
 
 
+// ==========================================================================
+// WOOCOMMERCE COMPATIBILITY LAYER FOR NIMBUSPOST CHANNEL SYNC
+// ==========================================================================
+
+const pincodeCache = {};
+async function getCachedPincodeDetails(pincode) {
+    if (pincodeCache[pincode]) return pincodeCache[pincode];
+    const details = await resolvePincode(pincode);
+    if (details) {
+        pincodeCache[pincode] = details;
+        return details;
+    }
+    return { city: "Kothagudem", state: "Telangana" };
+}
+
+function authenticateWooCommerceRequest(req) {
+    const consumerKey = process.env.WOO_CONSUMER_KEY || 'ck_sreshta_prod_key';
+    const consumerSecret = process.env.WOO_CONSUMER_SECRET || 'cs_sreshta_prod_secret';
+
+    // Check Basic Auth
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Basic ')) {
+        const credentialsBase64 = authHeader.substring(6);
+        const credentials = Buffer.from(credentialsBase64, 'base64').toString('ascii');
+        const [key, secret] = credentials.split(':');
+        if (key === consumerKey && secret === consumerSecret) {
+            return true;
+        }
+    }
+
+    // Check query parameters
+    const keyParam = req.query.consumer_key;
+    const secretParam = req.query.consumer_secret;
+    if (keyParam === consumerKey && secretParam === consumerSecret) {
+        return true;
+    }
+
+    return false;
+}
+
+// WooCommerce API Root / Index Discovery Endpoint
+const wcIndexResponse = {
+    namespace: "wc/v3",
+    routes: {
+        "/wc/v3": {
+            namespace: "wc/v3",
+            methods: ["GET"]
+        },
+        "/wc/v3/orders": {
+            namespace: "wc/v3",
+            methods: ["GET", "POST"]
+        },
+        "/wc/v3/orders/(?P<id>[\\d]+)": {
+            namespace: "wc/v3",
+            methods: ["GET", "POST", "PUT", "PATCH", "DELETE"]
+        }
+    }
+};
+
+app.get('/wp-json', (req, res) => {
+    res.json(wcIndexResponse);
+});
+
+app.get('/wp-json/wc/v3', (req, res) => {
+    res.json(wcIndexResponse);
+});
+
+// GET /wp-json/wc/v3/orders - Returns pending/preparing/packed orders for NimbusPost polling
+app.get('/wp-json/wc/v3/orders', async (req, res) => {
+    if (!authenticateWooCommerceRequest(req)) {
+        console.warn("WooCommerce API Mock: Unauthorized GET orders request.");
+        return res.status(401).json({
+            code: "woocommerce_rest_cannot_view",
+            message: "Sorry, you cannot list resources.",
+            data: { status: 401 }
+        });
+    }
+
+    if (!supabase) {
+        return res.status(500).json({ error: "Database not configured." });
+    }
+
+    try {
+        console.log("WooCommerce API Mock: GET orders requested by NimbusPost channel sync.");
+        
+        // Fetch Sreshta orders that are placed and paid but not yet dispatched/shipped
+        const { data, error } = await supabase
+            .from('orders')
+            .select('*')
+            .in('order_status', ['received', 'preparing', 'packed'])
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        const wooOrders = [];
+        for (const order of data) {
+            const pincodeDetails = await getCachedPincodeDetails(order.customer_pincode);
+            
+            // Format items to match WooCommerce line_items format
+            const lineItems = (order.items || []).map((item, idx) => ({
+                id: idx + 1,
+                name: item.name || `Sweets Item`,
+                product_id: idx + 100,
+                variation_id: 0,
+                quantity: parseInt(item.quantity || item.qty || 1),
+                tax_class: "",
+                subtotal: String(item.price || 0),
+                subtotal_tax: "0.00",
+                total: String((item.price || 0) * (item.quantity || 1)),
+                total_tax: "0.00",
+                taxes: [],
+                meta_data: [],
+                sku: `sku-${order.id}-${idx}`,
+                price: parseFloat(item.price || 0)
+            }));
+
+            wooOrders.push({
+                id: order.id,
+                parent_id: 0,
+                number: String(order.id),
+                order_key: `wc_order_${order.id}`,
+                created_via: "checkout",
+                version: "3.0.0",
+                status: "processing", // WooCommerce 'processing' tells NimbusPost this order is paid & ready to ship
+                currency: "INR",
+                date_created: order.created_at,
+                date_created_gmt: order.created_at,
+                date_modified: order.created_at,
+                date_modified_gmt: order.created_at,
+                discount_total: "0.00",
+                discount_tax: "0.00",
+                shipping_total: String(order.shipping_fee || 0),
+                shipping_tax: "0.00",
+                cart_tax: "0.00",
+                total: String(order.grand_total),
+                total_tax: "0.00",
+                prices_include_tax: true,
+                customer_id: 0,
+                billing: {
+                    first_name: order.customer_name,
+                    last_name: "",
+                    company: "",
+                    address_1: order.customer_address,
+                    address_2: "",
+                    city: pincodeDetails.city,
+                    state: pincodeDetails.state,
+                    postcode: order.customer_pincode,
+                    country: "IN",
+                    email: order.customer_email || "customer@example.com",
+                    phone: order.customer_phone
+                },
+                shipping: {
+                    first_name: order.customer_name,
+                    last_name: "",
+                    company: "",
+                    address_1: order.customer_address,
+                    address_2: "",
+                    city: pincodeDetails.city,
+                    state: pincodeDetails.state,
+                    postcode: order.customer_pincode,
+                    country: "IN",
+                    email: order.customer_email || "customer@example.com",
+                    phone: order.customer_phone
+                },
+                payment_method: "prepaid",
+                payment_method_title: "Razorpay Online",
+                transaction_id: "",
+                date_paid: order.created_at,
+                date_paid_gmt: order.created_at,
+                line_items: lineItems,
+                meta_data: []
+            });
+        }
+
+        res.json(wooOrders);
+    } catch (err) {
+        console.error("WooCommerce GET orders mock failed:", err.message);
+        res.status(500).json({ error: "Internal Server Error" });
+    }
+});
+
+// PUT /wp-json/wc/v3/orders/:id - Receives status updates or tracking updates back from NimbusPost
+app.put('/wp-json/wc/v3/orders/:id', async (req, res) => {
+    if (!authenticateWooCommerceRequest(req)) {
+        console.warn("WooCommerce API Mock: Unauthorized PUT order request.");
+        return res.status(401).json({
+            code: "woocommerce_rest_cannot_edit",
+            message: "Sorry, you cannot edit resources.",
+            data: { status: 401 }
+        });
+    }
+
+    if (!supabase) {
+        return res.status(500).json({ error: "Database not configured." });
+    }
+
+    const orderId = req.params.id;
+    const updateData = req.body || {};
+
+    try {
+        console.log(`WooCommerce API Mock: PUT request received for Order #${orderId}. Body:`, JSON.stringify(updateData, null, 2));
+
+        // Determine if status needs updating
+        let newStatus = null;
+        if (updateData.status === 'completed') {
+            newStatus = 'delivered';
+        }
+
+        const updateFields = {};
+        if (newStatus) {
+            updateFields.order_status = newStatus;
+        }
+
+        // Try to extract shipping details if sent by NimbusPost
+        if (updateData.meta_data && Array.isArray(updateData.meta_data)) {
+            const awbMeta = updateData.meta_data.find(m => m.key === '_tracking_number' || m.key === 'awb_number' || m.key === '_nimbuspost_awb');
+            const courierMeta = updateData.meta_data.find(m => m.key === '_courier_name' || m.key === 'courier_name' || m.key === '_nimbuspost_courier');
+            const linkMeta = updateData.meta_data.find(m => m.key === '_tracking_link' || m.key === 'tracking_link');
+
+            if (awbMeta) updateFields.tracking_id = String(awbMeta.value);
+            if (courierMeta) updateFields.courier_name = String(courierMeta.value);
+            if (linkMeta) updateFields.tracking_link = String(linkMeta.value);
+        }
+
+        if (Object.keys(updateFields).length > 0) {
+            const { data, error } = await supabase
+                .from('orders')
+                .update(updateFields)
+                .eq('id', orderId)
+                .select();
+
+            if (error) throw error;
+            if (data && data.length > 0) {
+                const updatedOrder = data[0];
+                console.log(`WooCommerce API Mock: Updated Order #${orderId} in database:`, updateFields);
+
+                // If marked as delivered, trigger notifications
+                if (newStatus === 'delivered') {
+                    const customerEmail = updatedOrder.customer_email || 'customer@example.com';
+                    if (customerEmail && customerEmail !== 'customer@example.com') {
+                        const itemsHtml = getItemsListHtml(updatedOrder.items);
+                        const subject = `🎉 Order Delivered Successfully! (Sreshta Order #${updatedOrder.id})`;
+                        const emailBody = getOrderDeliveredTemplate(updatedOrder, itemsHtml);
+                        await sendEmail(customerEmail, updatedOrder.customer_name, subject, emailBody);
+                    }
+                    if (updatedOrder.customer_phone) {
+                        const waBody = getWhatsAppOrderDelivered(updatedOrder);
+                        await sendWhatsApp(updatedOrder.customer_phone, waBody);
+                    }
+                }
+            }
+        }
+
+        res.json({
+            id: parseInt(orderId),
+            status: updateData.status || "processing"
+        });
+    } catch (err) {
+        console.error("WooCommerce PUT orders mock failed:", err.message);
+        res.status(500).json({ error: "Internal Server Error" });
+    }
+});
+
+
 // Start server
 app.listen(PORT, () => {
-
     console.log(`Server is running locally on http://localhost:${PORT}`);
 });
