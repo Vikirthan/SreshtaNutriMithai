@@ -655,8 +655,7 @@ app.post('/api/create-order', async (req, res) => {
             const adminEmailBody = getAdminNotificationTemplate(order, itemsHtml);
             await sendEmail(adminNotificationEmail, "Sreshta Admin", adminSubject, adminEmailBody);
 
-            // Trigger auto-push to NimbusPost in background
-            autoPushOrderToNimbusPost(order).catch(err => console.error("NimbusPost auto-push error:", err.message));
+            // Auto-push is now manually triggered from the admin orders page, no automatic push during checkout
 
             return res.status(201).json({
                 success: true,
@@ -759,8 +758,7 @@ app.post('/api/verify-payment', async (req, res) => {
         const adminEmailBody = getAdminNotificationTemplate(order, itemsHtml);
         await sendEmail(adminNotificationEmail, "Sreshta Admin", adminSubject, adminEmailBody);
 
-        // Trigger auto-push to NimbusPost in background
-        autoPushOrderToNimbusPost(order).catch(err => console.error("NimbusPost auto-push error:", err.message));
+        // Auto-push is now manually triggered from the admin orders page, no automatic push during checkout
 
         res.json({ success: true, message: "Payment verified successfully." });
     } catch (err) {
@@ -852,8 +850,7 @@ app.post('/api/admin/orders/:id/confirm-payment', async (req, res) => {
             await sendWhatsApp(order.customer_phone, waBody);
         }
 
-        // Trigger auto-push to NimbusPost in background
-        autoPushOrderToNimbusPost(order).catch(err => console.error("NimbusPost auto-push error:", err.message));
+        // Auto-push is now manually triggered from the admin orders page, no automatic push during checkout
 
         res.json({ success: true, order: order });
     } catch (err) {
@@ -971,6 +968,89 @@ app.post('/api/admin/orders/:id/dispatch', async (req, res) => {
     } catch (err) {
         console.error("Dispatch Error:", err.message);
         res.status(500).json({ error: "Failed to dispatch order on database." });
+    }
+});
+
+// 6b. Push Order to NimbusPost (Admin manual trigger)
+app.post('/api/admin/orders/:id/push-nimbus', async (req, res) => {
+    if (!supabase) {
+        return res.status(500).json({ error: "Database not configured." });
+    }
+
+    const authHeader = req.headers.authorization;
+    if (authHeader !== "Bearer sreshta-admin-authenticated-session") {
+        return res.status(403).json({ error: "Access Denied." });
+    }
+
+    const orderId = req.params.id;
+
+    try {
+        // Fetch order details from database
+        const { data: fetchDocs, error: fetchError } = await supabase
+            .from('orders')
+            .select('*')
+            .eq('id', orderId);
+
+        if (fetchError) throw fetchError;
+        if (!fetchDocs || fetchDocs.length === 0) {
+            return res.status(404).json({ error: "Order not found." });
+        }
+
+        const order = fetchDocs[0];
+
+        // Call NimbusPost auto push helper
+        console.log(`NimbusPost: Manually triggered push for Order #${orderId}`);
+        const pushResult = await autoPushOrderToNimbusPost(order);
+
+        if (!pushResult.success) {
+            return res.status(400).json({ error: pushResult.error || "Failed to push to NimbusPost." });
+        }
+
+        // If push succeeded, it returns:
+        // pushResult.data = { order_id, shipment_id, awb_number, courier_name, label }
+        const trackingId = pushResult.data.awb_number || "";
+        const courierName = pushResult.data.courier_name || "NimbusPost Courier";
+        const trackingLink = pushResult.data.label || "";
+
+        // Update database with status 'dispatched' and shipping tracking details
+        const { data: updateDocs, error: updateError } = await supabase
+            .from('orders')
+            .update({
+                order_status: 'dispatched',
+                tracking_id: trackingId,
+                courier_name: courierName,
+                tracking_link: trackingLink
+            })
+            .eq('id', orderId)
+            .select();
+
+        if (updateError) throw updateError;
+        const updatedOrder = updateDocs[0];
+
+        // Trigger Dispatch email to customer
+        const customerEmail = updatedOrder.customer_email || 'customer@example.com';
+        if (customerEmail && customerEmail !== 'customer@example.com') {
+            const itemsHtml = getItemsListHtml(updatedOrder.items);
+            const subject = `🚚 Sweets on the Way! Sreshta Order #${updatedOrder.id} Dispatched`;
+            const emailBody = getOrderDispatchedTemplate(updatedOrder, itemsHtml);
+            await sendEmail(customerEmail, updatedOrder.customer_name, subject, emailBody);
+        }
+
+        // Trigger WhatsApp dispatch details
+        if (updatedOrder.customer_phone) {
+            const waBody = getWhatsAppOrderDispatched(updatedOrder);
+            await sendWhatsApp(updatedOrder.customer_phone, waBody);
+        }
+
+        res.json({
+            success: true,
+            message: "Order successfully pushed to NimbusPost and marked as Dispatched.",
+            order: updatedOrder
+        });
+
+    } catch (err) {
+        console.error("Manual Nimbus Push Error:", err.message);
+        res.status(500).json({ error: "Failed to push order to NimbusPost: " + err.message });
     }
 });
 

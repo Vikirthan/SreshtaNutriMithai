@@ -541,6 +541,14 @@ function renderTableRows(orderRecords) {
             `;
         }
         
+        if (order.order_status === 'received' || order.order_status === 'preparing' || order.order_status === 'packed') {
+            actionButtonsHtml += `
+                <button class="btn-action-nimbus" id="nimbus-btn-${order.id}" onclick="pushToNimbusHandler(${order.id})">
+                    🚀 Push to Nimbus
+                </button>
+            `;
+        }
+
         actionButtonsHtml += `
             <button class="btn-action-notify" onclick="sendCustomerNotificationHandler(${order.id}, '${email}')">
                 ✉️ Notify
@@ -676,7 +684,53 @@ window.sendWhatsAppViaServerHandler = async function(orderId) {
     }
 };
 
+async function pushToNimbus(orderId) {
+    if (!confirm(`Are you sure you want to push Order #${orderId} directly to NimbusPost? This will create a shipment, fetch AWB details, mark the status as Dispatched, and notify the customer.`)) {
+        return;
+    }
+    
+    // Disable the button to prevent multiple clicks and show loading state
+    const btn = document.getElementById(`nimbus-btn-${orderId}`);
+    let originalText = "";
+    if (btn) {
+        originalText = btn.innerHTML;
+        btn.innerHTML = "⏳ Pushing...";
+        btn.disabled = true;
+    }
+    
+    try {
+        const response = await fetch(`/api/admin/orders/${orderId}/push-nimbus`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${sessionToken}`
+            }
+        });
+        
+        const data = await response.json();
+        if (response.ok && data.success) {
+            alert(`Success! Order #${orderId} has been successfully created in NimbusPost Seller Portal.\nAWB Number: ${data.order.tracking_id}\nCourier: ${data.order.courier_name}`);
+            // Fetch fresh list to update status and layout
+            fetchOrders();
+        } else {
+            alert(`NimbusPost Error: ${data.error || "Failed to push to NimbusPost."}`);
+        }
+    } catch (err) {
+        console.error(err);
+        alert("Server error pushing order to NimbusPost.");
+    } finally {
+        if (btn) {
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+        }
+    }
+}
+
 // Global handlers mapped to local action functions
+window.pushToNimbusHandler = function(orderId) {
+    pushToNimbus(orderId);
+};
+
 window.confirmOrderPaymentHandler = function(orderId, email) {
     confirmOrderPayment(orderId, email);
 };
