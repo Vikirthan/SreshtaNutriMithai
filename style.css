@@ -1075,6 +1075,7 @@ a {
     z-index: 960;
     display: flex;
     flex-direction: column;
+    overflow: hidden; /* Ensure contents stay in container and scroll cleanly */
     opacity: 0;
     pointer-events: none;
     transition: all var(--transition-speed) var(--transition-curve);
@@ -1168,6 +1169,7 @@ a {
     display: flex;
     flex-direction: column;
     gap: 16px;
+    padding-bottom: 32px; /* Breathing room at bottom so submit button is never cut off */
 }
 
 .form-group {
@@ -1456,9 +1458,14 @@ a {
         width: 100vw;
         max-width: 100vw;
         height: 100vh;
+        height: 100dvh; /* Account for dynamic browser address bars on mobile screens */
         max-height: 100vh;
+        max-height: 100dvh;
         top: 0;
         left: 0;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden; /* Force inner body scrolling */
         transform: translateY(100%);
         border-radius: 0;
         transition: transform var(--transition-speed) var(--transition-curve), opacity var(--transition-speed);
@@ -1471,6 +1478,8 @@ a {
     }
     
     .checkout-modal-body {
+        flex-grow: 1;
+        overflow-y: auto;
         padding: 16px;
         -webkit-overflow-scrolling: touch;
     }
