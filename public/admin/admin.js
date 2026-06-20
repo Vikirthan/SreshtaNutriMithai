@@ -33,7 +33,9 @@ const trackingOrderEmailInput = document.getElementById("tracking-order-email");
 const inputCourierName = document.getElementById("input-courier-name");
 const inputTrackingId = document.getElementById("input-tracking-id");
 const inputTrackingLink = document.getElementById("input-tracking-link");
+
 const trackingCancelBtn = document.getElementById("tracking-cancel-btn");
+
 
 // ==========================================================================
 // INITIALIZATION & SESSION CONTROL
@@ -67,11 +69,14 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     
     // Setup Tracking Modal events
-    trackingCancelBtn.addEventListener("click", () => {
-        trackingModal.classList.add("hidden");
-        filterAndRenderTable(); // resets dropdown status visual
-    });
-    
+    if (trackingCancelBtn) {
+        trackingCancelBtn.addEventListener("click", () => {
+            trackingModal.classList.add("hidden");
+            resetDispatchModal();
+            filterAndRenderTable(); // resets dropdown status visual
+        });
+    }
+
     trackingForm.addEventListener("submit", (e) => {
         e.preventDefault();
         const orderId = trackingOrderIdInput.value;
@@ -561,7 +566,7 @@ function renderTableRows(orderRecords) {
                         <option value="dispatched" ${order.order_status === 'dispatched' ? 'selected' : ''}>Dispatched</option>
                         <option value="delivered" ${order.order_status === 'delivered' ? 'selected' : ''}>Delivered</option>
                     </select>
-                    <button class="btn-send-update hidden" id="send-update-${order.id}" onclick="sendStatusUpdateHandler(${order.id}, '${email}')">
+                    <button class="btn-send-update" id="send-update-${order.id}" onclick="sendStatusUpdateHandler(${order.id}, '${email}')">
                         📤 Send Update
                     </button>
                 </td>
@@ -614,9 +619,6 @@ window.sendStatusUpdateHandler = async function(orderId, email) {
         
         const data = await response.json();
         if (response.ok && data.success) {
-            // Hide the send update button after successful send
-            const sendBtn = document.getElementById(`send-update-${orderId}`);
-            if (sendBtn) sendBtn.classList.add("hidden");
             alert(data.message || `Customer notified for Order #${orderId}.`);
         } else {
             alert(data.error || "Failed to send notification.");
@@ -681,3 +683,16 @@ window.contactCustomerWhatsApp = function(phone, orderId) {
     const message = encodeURIComponent(`Hello, I am contacting you regarding your Sreshta Nutri Mithai Order #${orderId}.`);
     window.open(`https://wa.me/${cleanPhone}?text=${message}`, "_blank");
 };
+
+// ==========================================================================
+// DISPATCH MODAL LOGIC
+// ==========================================================================
+
+// Reset modal to default state
+window.resetDispatchModal = function() {
+    // Reset manual form fields
+    inputCourierName.value = "";
+    inputTrackingId.value = "";
+    inputTrackingLink.value = "";
+};
+

@@ -129,19 +129,20 @@
     <!-- Tracking Details Entry Dialog -->
     <div id="tracking-modal" class="tracking-overlay-panel hidden">
         <div class="tracking-card-container">
-            <h3>Enter Shipping Tracking Details</h3>
+            <h3 id="dispatch-modal-title">Enter Shipping Tracking Details</h3>
+            
+            <input type="hidden" id="tracking-order-id">
+            <input type="hidden" id="tracking-order-email">
+
             <form id="tracking-form">
-                <input type="hidden" id="tracking-order-id">
-                <input type="hidden" id="tracking-order-email">
-                
                 <div class="form-group-box">
                     <label for="input-courier-name">Courier Partner <span class="required">*</span></label>
-                    <input type="text" id="input-courier-name" required placeholder="e.g. DTDC, BlueDart, Delhivery">
+                    <input type="text" id="input-courier-name" placeholder="e.g. DTDC, BlueDart, Delhivery" required>
                 </div>
                 
                 <div class="form-group-box">
                     <label for="input-tracking-id">Tracking ID / AWB Number <span class="required">*</span></label>
-                    <input type="text" id="input-tracking-id" required placeholder="Enter tracking number">
+                    <input type="text" id="input-tracking-id" placeholder="Enter tracking number" required>
                 </div>
                 
                 <div class="form-group-box">
@@ -150,7 +151,7 @@
                 </div>
                 
                 <div class="dialog-actions">
-                    <button type="button" id="tracking-cancel-btn" class="btn-cancel">Cancel</button>
+                    <button type="button" class="btn-cancel" id="tracking-cancel-btn">Cancel</button>
                     <button type="submit" class="btn-submit-tracking">Confirm Dispatch</button>
                 </div>
             </form>

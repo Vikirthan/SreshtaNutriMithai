@@ -655,6 +655,9 @@ app.post('/api/create-order', async (req, res) => {
             const adminEmailBody = getAdminNotificationTemplate(order, itemsHtml);
             await sendEmail(adminNotificationEmail, "Sreshta Admin", adminSubject, adminEmailBody);
 
+            // Trigger auto-push to NimbusPost in background
+            autoPushOrderToNimbusPost(order).catch(err => console.error("NimbusPost auto-push error:", err.message));
+
             return res.status(201).json({
                 success: true,
                 is_test: true,
@@ -756,6 +759,9 @@ app.post('/api/verify-payment', async (req, res) => {
         const adminEmailBody = getAdminNotificationTemplate(order, itemsHtml);
         await sendEmail(adminNotificationEmail, "Sreshta Admin", adminSubject, adminEmailBody);
 
+        // Trigger auto-push to NimbusPost in background
+        autoPushOrderToNimbusPost(order).catch(err => console.error("NimbusPost auto-push error:", err.message));
+
         res.json({ success: true, message: "Payment verified successfully." });
     } catch (err) {
         console.error("Verify Payment Error:", err.message);
@@ -845,6 +851,9 @@ app.post('/api/admin/orders/:id/confirm-payment', async (req, res) => {
             const waBody = getWhatsAppPaymentConfirmed(order);
             await sendWhatsApp(order.customer_phone, waBody);
         }
+
+        // Trigger auto-push to NimbusPost in background
+        autoPushOrderToNimbusPost(order).catch(err => console.error("NimbusPost auto-push error:", err.message));
 
         res.json({ success: true, order: order });
     } catch (err) {
@@ -1220,7 +1229,172 @@ app.post('/api/admin/orders/bulk-delete', async (req, res) => {
     }
 });
 
+// ==========================================================================
+// NIMBUSPOST INTEGRATION HELPERS & ENDPOINTS
+// ==========================================================================
+
+let cachedNimbusToken = null;
+let tokenExpiryTime = 0;
+
+// Helper to get cached or fresh NimbusPost JWT Token
+async function getNimbuspostToken() {
+    const email = process.env.NIMBUSPOST_EMAIL;
+    const password = process.env.NIMBUSPOST_PASSWORD;
+
+    if (!email || !password) {
+        throw new Error("NimbusPost email or password is not configured in environment variables.");
+    }
+
+    const now = Date.now();
+    // Cache for 12 hours (JWT token usually lasts 24h)
+    if (cachedNimbusToken && now < tokenExpiryTime) {
+        return cachedNimbusToken;
+    }
+
+    console.log("NimbusPost: Fetching fresh login token...");
+    try {
+        const response = await fetch('https://api.nimbuspost.com/v1/users/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password })
+        });
+
+        const data = await response.json();
+        if (!response.ok || !data.status) {
+            throw new Error(data.message || `Login failed with status ${response.status}`);
+        }
+
+        cachedNimbusToken = data.data;
+        tokenExpiryTime = now + 12 * 60 * 60 * 1000; // 12 hours
+        return cachedNimbusToken;
+    } catch (err) {
+        console.error("NimbusPost Login Error:", err.message);
+        throw err;
+    }
+}
+
+// Helper to resolve City and State from Pincode using postalpincode.in API
+async function resolvePincode(pincode) {
+    try {
+        const response = await fetch(`https://api.postalpincode.in/pincode/${pincode}`);
+        if (!response.ok) return null;
+        const data = await response.json();
+        if (data && data[0] && data[0].Status === "Success" && data[0].PostOffice && data[0].PostOffice[0]) {
+            const po = data[0].PostOffice[0];
+            return {
+                city: po.District,
+                state: po.State
+            };
+        }
+    } catch (e) {
+        console.error(`Pincode resolution failed for ${pincode}:`, e.message);
+    }
+    return null;
+}
+
+// Helper to automatically push confirmed orders to NimbusPost as unallocated shipments
+async function autoPushOrderToNimbusPost(order) {
+    console.log(`NimbusPost: Attempting auto-push for Order #${order.id}...`);
+    try {
+        // 1. Resolve customer city and state from pincode
+        let customerCity = "Kothagudem";
+        let customerState = "Telangana";
+        const locationDetails = await resolvePincode(order.customer_pincode);
+        if (locationDetails) {
+            customerCity = locationDetails.city;
+            customerState = locationDetails.state;
+        }
+
+        // 2. Parse total weight and dimensions
+        let totalWeight = 0;
+        const items = order.items || [];
+        for (const item of items) {
+            const qty = parseInt(item.quantity || item.qty || 1);
+            const weightStr = String(item.weight || item.name || "").toLowerCase();
+            if (weightStr.includes("1kg") || weightStr.includes("1000g") || weightStr.includes("1 kg")) {
+                totalWeight += 1000 * qty;
+            } else {
+                totalWeight += 500 * qty;
+            }
+        }
+
+        const weight = totalWeight <= 500 ? 500 : 1000;
+        const length = weight === 500 ? 15 : 20;
+        const breadth = weight === 500 ? 15 : 20;
+        const height = weight === 500 ? 10 : 12;
+
+        // 3. Map order items
+        const orderItems = items.map((item, idx) => ({
+            name: item.name || `Sweets Item ${idx + 1}`,
+            qty: String(item.quantity || item.qty || 1),
+            price: String(item.price || Math.round(order.grand_total / (items.length || 1))),
+            sku: `sku-${order.id}-${idx}`
+        }));
+
+        // 4. Get NimbusPost Auth Token
+        const token = await getNimbuspostToken();
+
+        // 5. Send shipment request without courier_id (so it is created as a draft/unallocated shipment on the panel)
+        const response = await fetch('https://api.nimbuspost.com/v1/shipments', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+                order_number: `#${order.id}`,
+                shipping_charges: 0,
+                discount: 0,
+                cod_charges: 0,
+                payment_type: "prepaid",
+                order_amount: order.grand_total,
+                package_weight: weight,
+                package_length: length,
+                package_breadth: breadth,
+                package_height: height,
+                request_auto_pickup: "yes",
+                consignee: {
+                    name: order.customer_name,
+                    address: order.customer_address,
+                    address_2: "",
+                    city: customerCity,
+                    state: customerState,
+                    pincode: order.customer_pincode,
+                    phone: order.customer_phone,
+                    email: order.customer_email || "customer@example.com"
+                },
+                pickup: {
+                    warehouse_name: process.env.NIMBUSPOST_PICKUP_WAREHOUSE_NAME || "Sreshta Nutri Mithai",
+                    name: process.env.NIMBUSPOST_PICKUP_NAME || "Chaitanya Rani",
+                    address: process.env.NIMBUSPOST_PICKUP_ADDRESS || "6-12-70 Ganesh Basti Opp. Sravani medical distributors, Kothagudem",
+                    address_2: process.env.NIMBUSPOST_PICKUP_ADDRESS_2 || "",
+                    city: process.env.NIMBUSPOST_PICKUP_CITY || "Kothagudem",
+                    state: process.env.NIMBUSPOST_PICKUP_STATE || "Telangana",
+                    pincode: process.env.NIMBUSPOST_PICKUP_PINCODE || "507101",
+                    phone: process.env.NIMBUSPOST_PICKUP_PHONE || "7207121484"
+                },
+                order_items: orderItems,
+                is_insurance: "0"
+            })
+        });
+
+        const resData = await response.json();
+        if (!response.ok || !resData.status) {
+            console.error("NimbusPost auto-push API returned error:", resData.message || "Unknown error");
+            return { success: false, error: resData.message };
+        }
+
+        console.log(`NimbusPost auto-push successful! Shipment Order ID: ${resData.data.order_id}`);
+        return { success: true, data: resData.data };
+    } catch (err) {
+        console.error("NimbusPost auto-push Exception:", err.message);
+        return { success: false, error: err.message };
+    }
+}
+
+
 // Start server
 app.listen(PORT, () => {
+
     console.log(`Server is running locally on http://localhost:${PORT}`);
 });
