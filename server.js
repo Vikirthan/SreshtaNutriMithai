@@ -971,7 +971,7 @@ app.post('/api/admin/orders/:id/dispatch', async (req, res) => {
     }
 });
 
-// 6b. Push Order to NimbusPost (Admin manual trigger)
+// 6b. Push Order to NimbusPost (Admin manual trigger to B2C orders page via webhook sync)
 app.post('/api/admin/orders/:id/push-nimbus', async (req, res) => {
     if (!supabase) {
         return res.status(500).json({ error: "Database not configured." });
@@ -998,59 +998,51 @@ app.post('/api/admin/orders/:id/push-nimbus', async (req, res) => {
 
         const order = fetchDocs[0];
 
-        // Call NimbusPost auto push helper
-        console.log(`NimbusPost: Manually triggered push for Order #${orderId}`);
-        const pushResult = await autoPushOrderToNimbusPost(order);
+        // Format order to WooCommerce format
+        const wooOrder = await formatOrderToWooCommerce(order);
 
-        if (!pushResult.success) {
-            return res.status(400).json({ error: pushResult.error || "Failed to push to NimbusPost." });
-        }
-
-        // If push succeeded, it returns:
-        // pushResult.data = { order_id, shipment_id, awb_number, courier_name, label }
-        const trackingId = pushResult.data.awb_number || "";
-        const courierName = pushResult.data.courier_name || "NimbusPost Courier";
-        const trackingLink = pushResult.data.label || "";
-
-        // Update database with status 'dispatched' and shipping tracking details
-        const { data: updateDocs, error: updateError } = await supabase
+        // Fetch registered webhook URL from DB
+        const { data: webhookDocs, error: webhookError } = await supabase
             .from('orders')
-            .update({
-                order_status: 'dispatched',
-                tracking_id: trackingId,
-                courier_name: courierName,
-                tracking_link: trackingLink
-            })
-            .eq('id', orderId)
-            .select();
+            .select('tracking_id')
+            .eq('customer_name', '__nimbus_webhook__');
 
-        if (updateError) throw updateError;
-        const updatedOrder = updateDocs[0];
-
-        // Trigger Dispatch email to customer
-        const customerEmail = updatedOrder.customer_email || 'customer@example.com';
-        if (customerEmail && customerEmail !== 'customer@example.com') {
-            const itemsHtml = getItemsListHtml(updatedOrder.items);
-            const subject = `🚚 Sweets on the Way! Sreshta Order #${updatedOrder.id} Dispatched`;
-            const emailBody = getOrderDispatchedTemplate(updatedOrder, itemsHtml);
-            await sendEmail(customerEmail, updatedOrder.customer_name, subject, emailBody);
+        let webhookUrl = null;
+        if (!webhookError && webhookDocs && webhookDocs.length > 0) {
+            webhookUrl = webhookDocs[0].tracking_id;
         }
 
-        // Trigger WhatsApp dispatch details
-        if (updatedOrder.customer_phone) {
-            const waBody = getWhatsAppOrderDispatched(updatedOrder);
-            await sendWhatsApp(updatedOrder.customer_phone, waBody);
+        if (!webhookUrl) {
+            return res.status(400).json({
+                error: "NimbusPost WooCommerce sync webhook is not registered. Please check that your WooCommerce channel is verified and sync triggered in the NimbusPost portal to automatically configure it."
+            });
+        }
+
+        console.log(`Pushing Order #${orderId} to NimbusPost WooCommerce Webhook: ${webhookUrl}`);
+        
+        const webhookResponse = await fetch(webhookUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-WC-Webhook-Topic': 'order.created',
+                'X-WC-Webhook-Source': `https://${req.headers.host || 'sreshtanutrimithai.vercel.app'}/`
+            },
+            body: JSON.stringify(wooOrder)
+        });
+
+        if (!webhookResponse.ok) {
+            const errText = await webhookResponse.text();
+            throw new Error(`NimbusPost webhook returned status ${webhookResponse.status}: ${errText}`);
         }
 
         res.json({
             success: true,
-            message: "Order successfully pushed to NimbusPost and marked as Dispatched.",
-            order: updatedOrder
+            message: "Order successfully pushed to NimbusPost B2C Orders page."
         });
 
     } catch (err) {
         console.error("Manual Nimbus Push Error:", err.message);
-        res.status(500).json({ error: "Failed to push order to NimbusPost: " + err.message });
+        res.status(500).json({ error: "Failed to push order to NimbusPost B2C Orders: " + err.message });
     }
 });
 
@@ -1313,6 +1305,86 @@ app.post('/api/admin/orders/bulk-delete', async (req, res) => {
 // NIMBUSPOST INTEGRATION HELPERS & ENDPOINTS
 // ==========================================================================
 
+// Helper to format order record for WooCommerce mock responses and webhooks
+async function formatOrderToWooCommerce(order) {
+    const pincodeDetails = await getCachedPincodeDetails(order.customer_pincode);
+    
+    // Format items to match WooCommerce line_items format
+    const lineItems = (order.items || []).map((item, idx) => ({
+        id: idx + 1,
+        name: item.name || `Sweets Item`,
+        product_id: idx + 100,
+        variation_id: 0,
+        quantity: parseInt(item.quantity || item.qty || 1),
+        tax_class: "",
+        subtotal: String(item.price || 0),
+        subtotal_tax: "0.00",
+        total: String((item.price || 0) * (item.quantity || 1)),
+        total_tax: "0.00",
+        taxes: [],
+        meta_data: [],
+        sku: `sku-${order.id}-${idx}`,
+        price: parseFloat(item.price || 0)
+    }));
+
+    return {
+        id: order.id,
+        parent_id: 0,
+        number: String(order.id),
+        order_key: `wc_order_${order.id}`,
+        created_via: "checkout",
+        version: "3.0.0",
+        status: "processing", // WooCommerce 'processing' tells NimbusPost this order is paid & ready to ship
+        currency: "INR",
+        date_created: order.created_at,
+        date_created_gmt: order.created_at,
+        date_modified: order.created_at,
+        date_modified_gmt: order.created_at,
+        discount_total: "0.00",
+        discount_tax: "0.00",
+        shipping_total: String(order.shipping_fee || 0),
+        shipping_tax: "0.00",
+        cart_tax: "0.00",
+        total: String(order.grand_total),
+        total_tax: "0.00",
+        prices_include_tax: true,
+        customer_id: 0,
+        billing: {
+            first_name: order.customer_name,
+            last_name: "",
+            company: "",
+            address_1: order.customer_address,
+            address_2: "",
+            city: pincodeDetails.city,
+            state: pincodeDetails.state,
+            postcode: order.customer_pincode,
+            country: "IN",
+            email: order.customer_email || "customer@example.com",
+            phone: order.customer_phone
+        },
+        shipping: {
+            first_name: order.customer_name,
+            last_name: "",
+            company: "",
+            address_1: order.customer_address,
+            address_2: "",
+            city: pincodeDetails.city,
+            state: pincodeDetails.state,
+            postcode: order.customer_pincode,
+            country: "IN",
+            email: order.customer_email || "customer@example.com",
+            phone: order.customer_phone
+        },
+        payment_method: "prepaid",
+        payment_method_title: "Razorpay Online",
+        transaction_id: "",
+        date_paid: order.created_at,
+        date_paid_gmt: order.created_at,
+        line_items: lineItems,
+        meta_data: []
+    };
+}
+
 let cachedNimbusToken = null;
 let tokenExpiryTime = 0;
 
@@ -1528,6 +1600,10 @@ const wcIndexResponse = {
         "/wc/v3/orders/(?P<id>[\\d]+)": {
             namespace: "wc/v3",
             methods: ["GET", "POST", "PUT", "PATCH", "DELETE"]
+        },
+        "/wc/v3/webhooks": {
+            namespace: "wc/v3",
+            methods: ["POST"]
         }
     }
 };
@@ -1538,6 +1614,70 @@ app.get('/wp-json', (req, res) => {
 
 app.get('/wp-json/wc/v3', (req, res) => {
     res.json(wcIndexResponse);
+});
+
+// POST /wp-json/wc/v3/webhooks - Mock endpoint to register sync webhooks from NimbusPost channel integration
+app.post('/wp-json/wc/v3/webhooks', async (req, res) => {
+    if (!authenticateWooCommerceRequest(req)) {
+        console.warn("WooCommerce API Mock: Unauthorized webhooks POST request.");
+        return res.status(401).json({
+            code: "woocommerce_rest_cannot_create",
+            message: "Sorry, you cannot create resources.",
+            data: { status: 401 }
+        });
+    }
+
+    if (!supabase) {
+        return res.status(500).json({ error: "Database not configured." });
+    }
+
+    const { name, topic, delivery_url } = req.body;
+    if (!delivery_url) {
+        return res.status(400).json({ error: "Missing delivery_url parameter." });
+    }
+
+    try {
+        console.log(`WooCommerce API Mock: NimbusPost registering sync webhook. URL: ${delivery_url}`);
+
+        // Delete any existing webhook config record to keep only one active
+        await supabase
+            .from('orders')
+            .delete()
+            .eq('customer_name', '__nimbus_webhook__');
+
+        // Insert webhook URL config as a special customer record in Supabase orders table
+        const { data, error } = await supabase
+            .from('orders')
+            .insert([
+                {
+                    customer_name: '__nimbus_webhook__',
+                    customer_email: 'webhook@sreshtanutrimithai.com',
+                    customer_phone: '0000000000',
+                    customer_address: 'N/A',
+                    customer_pincode: '000000',
+                    items: [],
+                    subtotal: 0,
+                    shipping_fee: 0,
+                    grand_total: 0,
+                    order_status: 'webhook',
+                    tracking_id: delivery_url // Stored in tracking_id column
+                }
+            ])
+            .select();
+
+        if (error) throw error;
+
+        res.status(201).json({
+            id: data[0].id,
+            name: name || "NimbusPost WooCommerce Webhook",
+            topic: topic || "order.created",
+            status: "active",
+            delivery_url: delivery_url
+        });
+    } catch (err) {
+        console.error("WooCommerce Webhooks registration error:", err.message);
+        res.status(500).json({ error: "Internal Server Error" });
+    }
 });
 
 // GET /wp-json/wc/v3/orders - Returns pending/preparing/packed orders for NimbusPost polling
@@ -1569,82 +1709,8 @@ app.get('/wp-json/wc/v3/orders', async (req, res) => {
 
         const wooOrders = [];
         for (const order of data) {
-            const pincodeDetails = await getCachedPincodeDetails(order.customer_pincode);
-            
-            // Format items to match WooCommerce line_items format
-            const lineItems = (order.items || []).map((item, idx) => ({
-                id: idx + 1,
-                name: item.name || `Sweets Item`,
-                product_id: idx + 100,
-                variation_id: 0,
-                quantity: parseInt(item.quantity || item.qty || 1),
-                tax_class: "",
-                subtotal: String(item.price || 0),
-                subtotal_tax: "0.00",
-                total: String((item.price || 0) * (item.quantity || 1)),
-                total_tax: "0.00",
-                taxes: [],
-                meta_data: [],
-                sku: `sku-${order.id}-${idx}`,
-                price: parseFloat(item.price || 0)
-            }));
-
-            wooOrders.push({
-                id: order.id,
-                parent_id: 0,
-                number: String(order.id),
-                order_key: `wc_order_${order.id}`,
-                created_via: "checkout",
-                version: "3.0.0",
-                status: "processing", // WooCommerce 'processing' tells NimbusPost this order is paid & ready to ship
-                currency: "INR",
-                date_created: order.created_at,
-                date_created_gmt: order.created_at,
-                date_modified: order.created_at,
-                date_modified_gmt: order.created_at,
-                discount_total: "0.00",
-                discount_tax: "0.00",
-                shipping_total: String(order.shipping_fee || 0),
-                shipping_tax: "0.00",
-                cart_tax: "0.00",
-                total: String(order.grand_total),
-                total_tax: "0.00",
-                prices_include_tax: true,
-                customer_id: 0,
-                billing: {
-                    first_name: order.customer_name,
-                    last_name: "",
-                    company: "",
-                    address_1: order.customer_address,
-                    address_2: "",
-                    city: pincodeDetails.city,
-                    state: pincodeDetails.state,
-                    postcode: order.customer_pincode,
-                    country: "IN",
-                    email: order.customer_email || "customer@example.com",
-                    phone: order.customer_phone
-                },
-                shipping: {
-                    first_name: order.customer_name,
-                    last_name: "",
-                    company: "",
-                    address_1: order.customer_address,
-                    address_2: "",
-                    city: pincodeDetails.city,
-                    state: pincodeDetails.state,
-                    postcode: order.customer_pincode,
-                    country: "IN",
-                    email: order.customer_email || "customer@example.com",
-                    phone: order.customer_phone
-                },
-                payment_method: "prepaid",
-                payment_method_title: "Razorpay Online",
-                transaction_id: "",
-                date_paid: order.created_at,
-                date_paid_gmt: order.created_at,
-                line_items: lineItems,
-                meta_data: []
-            });
+            const formatted = await formatOrderToWooCommerce(order);
+            wooOrders.push(formatted);
         }
 
         res.json(wooOrders);

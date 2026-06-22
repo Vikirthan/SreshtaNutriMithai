@@ -52,9 +52,18 @@ const PRODUCTS = [
     }
 ];
 
-const SHIPPING_THRESHOLD = 799;
-const FLAT_SHIPPING_FEE = 60;
+const SHIPPING_THRESHOLD = 1199;
 const CLIENT_WHATSAPP_NUMBER = "918190022020"; // standard format with country code (91 for India)
+
+function calculateShippingFee(subtotal) {
+    if (subtotal < 500) {
+        return 79;
+    } else if (subtotal < 1199) {
+        return 59;
+    } else {
+        return 0;
+    }
+}
 
 // ==========================================================================
 // STATE MANAGEMENT
@@ -115,6 +124,12 @@ function toggleCartDrawer(open) {
 
 function toggleCheckoutModal(open) {
     if (open) {
+        // Reset form inputs on open
+        const pincodeInput = document.getElementById("cust-pincode");
+        if (pincodeInput) {
+            pincodeInput.value = "";
+        }
+
         populateCheckoutSummary();
         checkoutModal.classList.add("active");
         pageOverlay.classList.add("active");
@@ -428,9 +443,8 @@ function updateCartUI() {
     }).join('');
     
     // Shipping Calculation & Progress Bar
-    let shippingFee = FLAT_SHIPPING_FEE;
-    if (subtotal >= SHIPPING_THRESHOLD) {
-        shippingFee = 0;
+    const shippingFee = calculateShippingFee(subtotal);
+    if (shippingFee === 0) {
         trackerMsg.innerHTML = `\u{1F389} Congratulations! You qualify for <strong>FREE Shipping!</strong>`;
         progressBar.style.width = "100%";
     } else {
@@ -457,8 +471,8 @@ function populateCheckoutSummary() {
         subtotal += item.price * item.quantity;
     });
     
-    let shippingFee = subtotal >= SHIPPING_THRESHOLD ? 0 : FLAT_SHIPPING_FEE;
-    let grandTotal = subtotal + shippingFee;
+    const shippingFee = calculateShippingFee(subtotal);
+    const grandTotal = subtotal + shippingFee;
     
     // Render list in modal
     checkoutItemsSummary.innerHTML = cart.map(item => {
@@ -474,7 +488,7 @@ function populateCheckoutSummary() {
     if (shippingFee > 0) {
         checkoutItemsSummary.innerHTML += `
             <div class="summary-item-row" style="color: var(--color-text-muted); font-style: italic;">
-                <span>Flat Shipping Fee</span>
+                <span>Shipping Fee</span>
                 <span>₹${shippingFee}</span>
             </div>
         `;
@@ -505,8 +519,8 @@ checkoutForm.addEventListener("submit", (e) => {
     cart.forEach(item => {
         subtotal += item.price * item.quantity;
     });
-    let shippingFee = subtotal >= SHIPPING_THRESHOLD ? 0 : FLAT_SHIPPING_FEE;
-    let grandTotal = subtotal + shippingFee;
+    const shippingFee = calculateShippingFee(subtotal);
+    const grandTotal = subtotal + shippingFee;
     
     // Submit order details to the backend
     const orderData = {

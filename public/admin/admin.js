@@ -685,7 +685,7 @@ window.sendWhatsAppViaServerHandler = async function(orderId) {
 };
 
 async function pushToNimbus(orderId) {
-    if (!confirm(`Are you sure you want to push Order #${orderId} directly to NimbusPost? This will create a shipment, fetch AWB details, mark the status as Dispatched, and notify the customer.`)) {
+    if (!confirm(`Are you sure you want to push Order #${orderId} to NimbusPost B2C Orders page? This will sync the order to the portal for manual courier allocation and fulfillment.`)) {
         return;
     }
     
@@ -709,7 +709,7 @@ async function pushToNimbus(orderId) {
         
         const data = await response.json();
         if (response.ok && data.success) {
-            alert(`Success! Order #${orderId} has been successfully created in NimbusPost Seller Portal.\nAWB Number: ${data.order.tracking_id}\nCourier: ${data.order.courier_name}`);
+            alert(`Success! Order #${orderId} has been successfully pushed to NimbusPost B2C Orders portal. You can allocate a courier and book the shipment from your NimbusPost Seller Panel.`);
             // Fetch fresh list to update status and layout
             fetchOrders();
         } else {
