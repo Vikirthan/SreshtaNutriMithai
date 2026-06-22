@@ -1647,7 +1647,7 @@ app.post('/wp-json/wc/v3/webhooks', async (req, res) => {
         return res.status(500).json({ error: "Database not configured." });
     }
 
-    const { name, topic, delivery_url } = req.body;
+    const { name, topic, delivery_url, secret } = req.body;
     if (!delivery_url) {
         return res.status(400).json({ error: "Missing delivery_url parameter." });
     }
@@ -1688,7 +1688,8 @@ app.post('/wp-json/wc/v3/webhooks', async (req, res) => {
             name: name || "NimbusPost WooCommerce Webhook",
             topic: topic || "order.created",
             status: "active",
-            delivery_url: delivery_url
+            delivery_url: delivery_url,
+            secret: secret || "mock_secret"
         });
     } catch (err) {
         console.error("WooCommerce Webhooks registration error:", err.message);
