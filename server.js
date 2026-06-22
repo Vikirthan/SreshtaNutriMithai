@@ -794,6 +794,7 @@ app.get('/api/admin/orders', async (req, res) => {
         const { data, error } = await supabase
             .from('orders')
             .select('*')
+            .neq('customer_name', '__nimbus_webhook__')
             .order('created_at', { ascending: false });
 
         if (error) throw error;
