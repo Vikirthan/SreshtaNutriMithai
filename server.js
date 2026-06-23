@@ -1450,6 +1450,11 @@ async function formatOrderToWooCommerce(order) {
 
     const cleanDate = new Date(order.created_at || Date.now()).toISOString().split('.')[0];
     
+    // Split customer name into first name and last name
+    const nameParts = (order.customer_name || "").trim().split(/\s+/);
+    const firstName = nameParts[0] || "";
+    const lastName = nameParts.slice(1).join(" ") || "";
+
     return {
         id: order.id,
         parent_id: 0,
@@ -1457,7 +1462,7 @@ async function formatOrderToWooCommerce(order) {
         order_key: `wc_order_${order.id}`,
         created_via: "checkout",
         version: "3.0.0",
-        status: "processing", // WooCommerce 'processing' tells NimbusPost this order is paid & ready to ship
+        status: "completed", // WooCommerce 'completed' status ensures it's synced regardless of map filtering
         currency: "INR",
         date_created: cleanDate,
         date_created_gmt: cleanDate,
@@ -1476,8 +1481,8 @@ async function formatOrderToWooCommerce(order) {
         customer_user_agent: "Mozilla/5.0",
         customer_note: "",
         billing: {
-            first_name: order.customer_name,
-            last_name: "",
+            first_name: firstName,
+            last_name: lastName,
             company: "",
             address_1: order.customer_address,
             address_2: "",
@@ -1489,8 +1494,8 @@ async function formatOrderToWooCommerce(order) {
             phone: order.customer_phone
         },
         shipping: {
-            first_name: order.customer_name,
-            last_name: "",
+            first_name: firstName,
+            last_name: lastName,
             company: "",
             address_1: order.customer_address,
             address_2: "",
@@ -2099,6 +2104,43 @@ app.put('/wp-json/wc/v3/orders/:id', async (req, res) => {
         console.error("WooCommerce PUT orders mock failed:", err.message);
         res.status(500).json({ error: "Internal Server Error" });
     }
+});
+
+// GET /wp-json/wc/v3/products/:id - Mock endpoint for product details requested by NimbusPost channel sync
+app.get('/wp-json/wc/v3/products/:id', (req, res) => {
+    if (!authenticateWooCommerceRequest(req)) {
+        console.warn(`WooCommerce API Mock: Unauthorized GET product request for ID: ${req.params.id}`);
+        return res.status(401).json({
+            code: "woocommerce_rest_cannot_view",
+            message: "Sorry, you cannot view this resource.",
+            data: { status: 401 }
+        });
+    }
+
+    const productId = req.params.id;
+    console.log(`WooCommerce API Mock: GET product details requested for ID: ${productId}`);
+
+    res.json({
+        id: parseInt(productId),
+        name: "Sreshta Sweets Product",
+        slug: "sweets-product",
+        permalink: "https://sreshtanutrimithai.vercel.app/",
+        type: "simple",
+        status: "publish",
+        sku: `sku-product-${productId}`,
+        price: "500.00",
+        regular_price: "500.00",
+        weight: "0.5",
+        dimensions: {
+            length: "15",
+            width: "15",
+            height: "10"
+        },
+        shipping_required: true,
+        shipping_taxable: true,
+        categories: [],
+        images: []
+    });
 });
 
 
