@@ -1005,12 +1005,16 @@ app.post('/api/admin/orders/:id/push-nimbus', async (req, res) => {
         // Fetch registered webhook URL from DB
         const { data: webhookDocs, error: webhookError } = await supabase
             .from('orders')
-            .select('tracking_id')
+            .select('id, tracking_id, courier_name')
             .eq('customer_name', '__nimbus_webhook__');
 
         let webhookUrl = null;
+        let webhookSecret = 'mock_secret';
+        let webhookRecordId = 1;
         if (!webhookError && webhookDocs && webhookDocs.length > 0) {
             webhookUrl = webhookDocs[0].tracking_id;
+            webhookSecret = webhookDocs[0].courier_name || 'mock_secret';
+            webhookRecordId = webhookDocs[0].id;
         }
 
         if (!webhookUrl) {
@@ -1019,16 +1023,29 @@ app.post('/api/admin/orders/:id/push-nimbus', async (req, res) => {
             });
         }
 
-        console.log(`Pushing Order #${orderId} to NimbusPost WooCommerce Webhook: ${webhookUrl}`);
+        const crypto = require('crypto');
+        const bodyStr = JSON.stringify(wooOrder);
+        const signature = crypto
+            .createHmac('sha256', webhookSecret)
+            .update(bodyStr, 'utf8')
+            .digest('base64');
+        const deliveryId = crypto.randomBytes(8).toString('hex');
+
+        console.log(`Pushing Order #${orderId} to NimbusPost WooCommerce Webhook: ${webhookUrl} (Secret: ${webhookSecret === 'mock_secret' ? 'default mock' : 'custom db'})`);
         
         const webhookResponse = await fetch(webhookUrl, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'X-WC-Webhook-Topic': 'order.created',
+                'X-WC-Webhook-Resource': 'order',
+                'X-WC-Webhook-Event': 'created',
+                'X-WC-Webhook-Signature': signature,
+                'X-WC-Webhook-ID': String(webhookRecordId),
+                'X-WC-Webhook-Delivery-ID': deliveryId,
                 'X-WC-Webhook-Source': `https://${req.headers.host || 'sreshtanutrimithai.vercel.app'}/`
             },
-            body: JSON.stringify(wooOrder)
+            body: bodyStr
         });
 
         if (!webhookResponse.ok) {
@@ -1677,7 +1694,8 @@ app.post('/wp-json/wc/v3/webhooks', async (req, res) => {
                     shipping_fee: 0,
                     grand_total: 0,
                     order_status: 'webhook',
-                    tracking_id: delivery_url // Stored in tracking_id column
+                    tracking_id: delivery_url, // Stored in tracking_id column
+                    courier_name: secret || 'mock_secret' // Stored in courier_name column
                 }
             ])
             .select();
@@ -1690,7 +1708,7 @@ app.post('/wp-json/wc/v3/webhooks', async (req, res) => {
             topic: topic || "order.created",
             status: "active",
             delivery_url: delivery_url,
-            secret: secret || "mock_secret"
+            secret: data[0].courier_name || secret || "mock_secret"
         });
     } catch (err) {
         console.error("WooCommerce Webhooks registration error:", err.message);
