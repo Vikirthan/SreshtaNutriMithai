@@ -1364,6 +1364,8 @@ async function formatOrderToWooCommerce(order) {
         price: parseFloat(item.price || 0)
     }));
 
+    const cleanDate = new Date(order.created_at || Date.now()).toISOString().split('.')[0];
+    
     return {
         id: order.id,
         parent_id: 0,
@@ -1373,10 +1375,10 @@ async function formatOrderToWooCommerce(order) {
         version: "3.0.0",
         status: "processing", // WooCommerce 'processing' tells NimbusPost this order is paid & ready to ship
         currency: "INR",
-        date_created: order.created_at,
-        date_created_gmt: order.created_at,
-        date_modified: order.created_at,
-        date_modified_gmt: order.created_at,
+        date_created: cleanDate,
+        date_created_gmt: cleanDate,
+        date_modified: cleanDate,
+        date_modified_gmt: cleanDate,
         discount_total: "0.00",
         discount_tax: "0.00",
         shipping_total: String(order.shipping_fee || 0),
@@ -1386,6 +1388,9 @@ async function formatOrderToWooCommerce(order) {
         total_tax: "0.00",
         prices_include_tax: true,
         customer_id: 0,
+        customer_ip_address: "127.0.0.1",
+        customer_user_agent: "Mozilla/5.0",
+        customer_note: "",
         billing: {
             first_name: order.customer_name,
             last_name: "",
@@ -1415,9 +1420,25 @@ async function formatOrderToWooCommerce(order) {
         payment_method: "prepaid",
         payment_method_title: "Razorpay Online",
         transaction_id: "",
-        date_paid: order.created_at,
-        date_paid_gmt: order.created_at,
+        date_paid: cleanDate,
+        date_paid_gmt: cleanDate,
         line_items: lineItems,
+        shipping_lines: [
+            {
+                id: 1,
+                method_title: (order.shipping_fee && parseFloat(order.shipping_fee) > 0) ? "Flat Rate" : "Free Shipping",
+                method_id: (order.shipping_fee && parseFloat(order.shipping_fee) > 0) ? "flat_rate" : "free_shipping",
+                instance_id: "0",
+                total: String(order.shipping_fee || 0),
+                total_tax: "0.00",
+                taxes: [],
+                meta_data: []
+            }
+        ],
+        tax_lines: [],
+        fee_lines: [],
+        coupon_lines: [],
+        refunds: [],
         meta_data: []
     };
 }
