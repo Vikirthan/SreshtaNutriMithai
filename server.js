@@ -881,6 +881,60 @@ app.get('/api/admin/orders', async (req, res) => {
     }
 });
 
+// 3a. Resolve Pincode (Admin check)
+app.get('/api/admin/resolve-pincode/:pincode', async (req, res) => {
+    const authHeader = req.headers.authorization;
+    if (authHeader !== "Bearer sreshta-admin-authenticated-session") {
+        return res.status(403).json({ error: "Access Denied." });
+    }
+
+    const pincode = req.params.pincode;
+    try {
+        const details = await getCachedPincodeDetails(pincode);
+        res.json({ success: true, ...details });
+    } catch (err) {
+        console.error("Pincode resolve error:", err.message);
+        res.json({ success: true, city: "Kothagudem", state: "Telangana" }); // fallback
+    }
+});
+
+// 3b. Log Export Activity (Admin check)
+app.post('/api/admin/logs/export', async (req, res) => {
+    if (!supabase) {
+        return res.status(500).json({ error: "Database not configured." });
+    }
+
+    const authHeader = req.headers.authorization;
+    if (authHeader !== "Bearer sreshta-admin-authenticated-session") {
+        return res.status(403).json({ error: "Access Denied." });
+    }
+
+    const { adminName, selectedStatus, ordersCount } = req.body;
+
+    try {
+        const { error } = await supabase.from('orders').insert([{
+            customer_name: '__nimbus_export_log__',
+            customer_email: String(adminName || 'Sreshta Admin').slice(0, 255),
+            customer_phone: 'EXPORT',
+            customer_address: `Status Filter: ${selectedStatus}`,
+            customer_pincode: 'LOG',
+            items: [],
+            subtotal: 0,
+            shipping_fee: 0,
+            grand_total: parseInt(ordersCount) || 0,
+            order_status: 'log',
+            tracking_id: 'Export NimbusPost CSV'
+        }]);
+
+        if (error) throw error;
+
+        res.json({ success: true });
+    } catch (err) {
+        console.error("Failed to log export activity to DB:", err.message);
+        res.status(500).json({ error: "Failed to log export activity." });
+    }
+});
+
 // 4. Confirm Payment (Admin button)
 app.post('/api/admin/orders/:id/confirm-payment', async (req, res) => {
     if (!supabase) {

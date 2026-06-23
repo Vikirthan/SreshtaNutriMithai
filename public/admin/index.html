@@ -82,6 +82,28 @@
                     </div>
                 </div>
 
+                <!-- Export Controls & Info Bar -->
+                <div class="export-actions-bar">
+                    <div class="export-info-group">
+                        <span class="export-info-item">
+                            <span class="info-label">Current Filter:</span>
+                            <span id="export-current-filter" class="info-value">All Orders</span>
+                        </span>
+                        <span class="export-info-item">
+                            <span class="info-label">Orders Found:</span>
+                            <span id="export-orders-found" class="info-value">0</span>
+                        </span>
+                    </div>
+                    <div class="export-buttons-group">
+                        <button type="button" id="btn-export-xlsx" class="btn-export-action xlsx">
+                            📊 Export Orders (.xlsx)
+                        </button>
+                        <button type="button" id="btn-export-nimbus" class="btn-export-action nimbus">
+                            🚀 Export NimbusPost CSV
+                        </button>
+                    </div>
+                </div>
+
                 <!-- Bulk Actions Bar -->
                 <div id="bulk-actions-bar" class="bulk-actions-bar hidden">
                     <span id="selected-count-text" class="selected-count-text">0 orders selected</span>
@@ -158,9 +180,26 @@
         </div>
     </div>
 
+    <!-- Validation Errors Display Dialog -->
+    <div id="validation-modal" class="tracking-overlay-panel hidden">
+        <div class="tracking-card-container" style="max-width: 600px;">
+            <h3 style="color: var(--color-danger); margin-bottom: 16px;">⚠️ NimbusPost CSV Validation Errors</h3>
+            <p style="font-size: 14px; margin-bottom: 12px; color: var(--color-text-dark);">
+                Please fix the following validation errors in the order list before exporting to NimbusPost:
+            </p>
+            <div id="validation-errors-list" style="max-height: 300px; overflow-y: auto; text-align: left; background: #FFF5F5; border: 1px solid #FEB2B2; padding: 12px; border-radius: var(--border-radius-sm); margin-bottom: 20px; font-size: 13px; font-family: monospace; color: #C53030; line-height: 1.6;">
+                <!-- Error messages inserted here -->
+            </div>
+            <div class="dialog-actions">
+                <button type="button" class="btn-cancel" id="validation-close-btn" style="width: 100%;">Close</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Toast Notifications Container -->
     <div id="toast-container" class="toast-container"></div>
 
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script src="/admin/admin.js"></script>
 </body>
 </html>

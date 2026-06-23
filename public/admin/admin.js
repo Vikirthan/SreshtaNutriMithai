@@ -2,6 +2,7 @@
 // ADMIN DASHBOARD STATE
 // ==========================================================================
 let orders = [];
+let currentlyFilteredOrders = [];
 let sessionToken = localStorage.getItem("sreshta_admin_token") || "";
 
 // DOM Elements
@@ -46,6 +47,24 @@ document.addEventListener("DOMContentLoaded", () => {
     // Setup Search & Filter events
     searchInput.addEventListener("input", filterAndRenderTable);
     statusFilter.addEventListener("change", filterAndRenderTable);
+
+    // Setup Export events
+    const btnExportXlsx = document.getElementById("btn-export-xlsx");
+    const btnExportNimbus = document.getElementById("btn-export-nimbus");
+    const validationCloseBtn = document.getElementById("validation-close-btn");
+
+    if (btnExportXlsx) {
+        btnExportXlsx.addEventListener("click", exportToXLSX);
+    }
+    if (btnExportNimbus) {
+        btnExportNimbus.addEventListener("click", exportToNimbusCSV);
+    }
+    if (validationCloseBtn) {
+        validationCloseBtn.addEventListener("click", () => {
+            const modal = document.getElementById("validation-modal");
+            if (modal) modal.classList.add("hidden");
+        });
+    }
 
     // Setup Selection & Bulk Action events
     if (selectAllCheckbox) {
@@ -493,6 +512,25 @@ function filterAndRenderTable() {
         return true;
     });
 
+    currentlyFilteredOrders = filtered;
+
+    // Update Export UI Labels
+    const exportCurrentFilter = document.getElementById("export-current-filter");
+    const exportOrdersFound = document.getElementById("export-orders-found");
+    if (exportCurrentFilter) {
+        const statusMap = {
+            'all': 'All Orders',
+            'received': 'Received',
+            'preparing': 'Preparing',
+            'dispatched': 'Dispatched',
+            'delivered': 'Delivered'
+        };
+        exportCurrentFilter.textContent = statusMap[selectedStatus] || selectedStatus;
+    }
+    if (exportOrdersFound) {
+        exportOrdersFound.textContent = filtered.length;
+    }
+
     renderTableRows(filtered);
 }
 
@@ -838,5 +876,342 @@ function showNewOrderAlert(order) {
             toast.remove();
         }, 300);
     }, 8000);
+}
+
+// ==========================================================================
+// EXPORT & VALIDATION LOGIC
+// ==========================================================================
+
+const clientPincodeCache = {};
+
+async function resolvePincodeClient(pincode) {
+    if (clientPincodeCache[pincode]) {
+        return clientPincodeCache[pincode];
+    }
+    try {
+        const response = await fetch(`/api/admin/resolve-pincode/${pincode}`, {
+            headers: {
+                'Authorization': `Bearer ${sessionToken}`
+            }
+        });
+        if (response.ok) {
+            const data = await response.json();
+            if (data && data.success) {
+                clientPincodeCache[pincode] = { city: data.city, state: data.state };
+                return clientPincodeCache[pincode];
+            }
+        }
+    } catch (err) {
+        console.error("Failed to resolve pincode:", pincode, err);
+    }
+    return { city: "Kothagudem", state: "Telangana" }; // Default fallback
+}
+
+function getOrderDimensions(order) {
+    let totalWeight = 0;
+    const items = order.items || [];
+    for (const item of items) {
+        const qty = parseInt(item.quantity || item.qty || 1);
+        const weightStr = String(item.weight || item.name || "").toLowerCase();
+        if (weightStr.includes("1kg") || weightStr.includes("1000g") || weightStr.includes("1 kg")) {
+            totalWeight += 1000 * qty;
+        } else {
+            totalWeight += 500 * qty;
+        }
+    }
+
+    const weight = totalWeight <= 500 ? 500 : 1000;
+    const length = weight === 500 ? 15 : 20;
+    const breadth = weight === 500 ? 15 : 20;
+    const height = weight === 500 ? 10 : 12;
+    
+    return { weight, length, height, breadth };
+}
+
+function escapeCSVValue(val) {
+    if (val === null || val === undefined) return "";
+    let str = String(val);
+    
+    // Prevent CSV Injection (sanitize characters =, +, -, @)
+    if (str.startsWith("=") || str.startsWith("+") || str.startsWith("-") || str.startsWith("@")) {
+        str = "'" + str;
+    }
+    
+    // Wrap in quotes if it contains commas, double quotes, or newlines
+    if (str.includes(",") || str.includes('"') || str.includes("\n") || str.includes("\r")) {
+        str = '"' + str.replace(/"/g, '""') + '"';
+    }
+    return str;
+}
+
+// 1. General Excel Spreadsheet Export (.xlsx)
+function exportToXLSX() {
+    if (currentlyFilteredOrders.length === 0) {
+        alert("No orders to export.");
+        return;
+    }
+
+    const data = currentlyFilteredOrders.map(order => {
+        const dateObj = new Date(order.created_at);
+        const formattedDate = dateObj.toLocaleString('en-IN');
+        const itemsList = order.items.map(item => `${item.name} (${item.weight || ''}) x ${item.quantity || item.qty || 1}`).join(', ');
+        const email = order.customer_email || order.email || '';
+
+        return {
+            "Order ID": `#${order.id}`,
+            "Date & Time": formattedDate,
+            "Customer Name": order.customer_name,
+            "Customer Phone": order.customer_phone,
+            "Customer Email": email,
+            "Delivery Address": order.customer_address,
+            "Pincode": order.customer_pincode,
+            "Ordered Sweets": itemsList,
+            "Subtotal": order.subtotal,
+            "Shipping Fee": order.shipping_fee,
+            "Grand Total": order.grand_total,
+            "Order Status": order.order_status,
+            "Courier Name": order.courier_name || "",
+            "Tracking ID": order.tracking_id || "",
+            "Tracking Link": order.tracking_link || ""
+        };
+    });
+
+    const worksheet = XLSX.utils.json_to_sheet(data);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Orders");
+    
+    const selectedStatus = statusFilter.value;
+    const filename = `Sreshta_Orders_${selectedStatus}_${new Date().toISOString().slice(0,10)}.xlsx`;
+    XLSX.writeFile(workbook, filename);
+}
+
+// 2. Dedicated NimbusPost CSV Export
+async function exportToNimbusCSV() {
+    if (currentlyFilteredOrders.length === 0) {
+        alert("No orders to export.");
+        return;
+    }
+
+    const btn = document.getElementById("btn-export-nimbus");
+    let originalText = "";
+    if (btn) {
+        originalText = btn.innerHTML;
+        btn.innerHTML = "⏳ Resolving Pincodes...";
+        btn.disabled = true;
+    }
+
+    try {
+        // 1. Resolve all pincodes in parallel
+        const resolvedLocations = await Promise.all(
+            currentlyFilteredOrders.map(order => resolvePincodeClient(order.customer_pincode))
+        );
+
+        // 2. Perform validations
+        const validationErrors = [];
+        for (let i = 0; i < currentlyFilteredOrders.length; i++) {
+            const order = currentlyFilteredOrders[i];
+            const loc = resolvedLocations[i];
+            const missingFields = [];
+
+            if (!order.customer_name || !order.customer_name.trim()) {
+                missingFields.push("Customer Name");
+            }
+            if (!order.customer_phone || !order.customer_phone.trim()) {
+                missingFields.push("Phone Number");
+            }
+            if (!order.customer_address || !order.customer_address.trim()) {
+                missingFields.push("Address");
+            }
+            if (!loc.city || !loc.city.trim()) {
+                missingFields.push("City");
+            }
+            if (!loc.state || !loc.state.trim()) {
+                missingFields.push("State");
+            }
+            if (!order.customer_pincode || !order.customer_pincode.trim()) {
+                missingFields.push("Pincode");
+            }
+            
+            // Validate product details
+            if (!order.items || order.items.length === 0) {
+                missingFields.push("Product Name");
+            } else {
+                const hasMissingName = order.items.some(item => !item.name || !item.name.trim());
+                if (hasMissingName) {
+                    missingFields.push("Product Name");
+                }
+            }
+
+            if (missingFields.length > 0) {
+                validationErrors.push(`Order #${order.id}: Missing ${missingFields.join(", ")}`);
+            }
+        }
+
+        if (validationErrors.length > 0) {
+            // Show modal dialog
+            const listContainer = document.getElementById("validation-errors-list");
+            if (listContainer) {
+                listContainer.innerHTML = validationErrors.map(err => `<div>${err}</div>`).join("");
+            }
+            const modal = document.getElementById("validation-modal");
+            if (modal) {
+                modal.classList.remove("hidden");
+            }
+            return;
+        }
+
+        // 3. Find max products across orders to dynamically generate SKU/Product/Quantity/Price column sets
+        let maxItemsCount = 1;
+        currentlyFilteredOrders.forEach(order => {
+            if (order.items && order.items.length > maxItemsCount) {
+                maxItemsCount = order.items.length;
+            }
+        });
+
+        // 4. Create headers
+        const headers = [
+            "Order ID*",
+            "Payment Type*",
+            "Collectable Amount",
+            "Tags",
+            "Shipping First Name*",
+            "Shipping Last Name",
+            "Shipping Company Name",
+            "Shipping Address 1*",
+            "Shipping Address 2",
+            "Shipping Phone Number*",
+            "Shipping City*",
+            "Shipping State*",
+            "Shipping Pincode*",
+            "Weight(gm)",
+            "Length(cm)",
+            "Height(cm)",
+            "Breadth(cm)"
+        ];
+
+        for (let k = 1; k <= maxItemsCount; k++) {
+            if (k === 1) {
+                headers.push("SKU(1)", "Product(1)*", "Quantity(1)*", "Price(1)*");
+            } else {
+                headers.push(`SKU(${k})`, `Product(${k})`, `Quantity(${k})`, `Price(${k})`);
+            }
+        }
+
+        // 5. Construct rows
+        const rows = [];
+        for (let i = 0; i < currentlyFilteredOrders.length; i++) {
+            const order = currentlyFilteredOrders[i];
+            const loc = resolvedLocations[i];
+            const dims = getOrderDimensions(order);
+
+            // Split customer name
+            let firstName = "";
+            let lastName = "";
+            if (order.customer_name) {
+                const parts = order.customer_name.trim().split(/\s+/);
+                firstName = parts[0] || "";
+                lastName = parts.slice(1).join(" ") || "";
+            }
+
+            // Split address
+            let address1 = order.customer_address || "";
+            let address2 = "";
+            if (address1.includes("\n")) {
+                const lines = address1.split("\n");
+                address1 = lines[0].trim();
+                address2 = lines.slice(1).join(", ").trim();
+            }
+
+            // Payment type and COD Amount
+            const paymentMethod = (order.payment_method || order.payment_type || "").toUpperCase();
+            const isCOD = paymentMethod === 'COD' || paymentMethod.includes('COD');
+            const paymentType = isCOD ? 'COD' : 'Prepaid';
+            const collectableAmount = isCOD ? (order.grand_total || 0) : 0;
+
+            const row = [
+                escapeCSVValue(order.id),
+                escapeCSVValue(paymentType),
+                escapeCSVValue(collectableAmount),
+                "", // Tags
+                escapeCSVValue(firstName),
+                escapeCSVValue(lastName),
+                escapeCSVValue(order.company_name || order.company || ""),
+                escapeCSVValue(address1),
+                escapeCSVValue(address2),
+                escapeCSVValue(order.customer_phone),
+                escapeCSVValue(loc.city),
+                escapeCSVValue(loc.state),
+                escapeCSVValue(order.customer_pincode),
+                escapeCSVValue(dims.weight),
+                escapeCSVValue(dims.length),
+                escapeCSVValue(dims.height),
+                escapeCSVValue(dims.breadth)
+            ];
+
+            // Add item SKU/Product/Quantity/Price
+            for (let j = 0; j < maxItemsCount; j++) {
+                const item = order.items && order.items[j];
+                if (item) {
+                    const itemSKU = item.sku || `sku-${order.id}-${j}`;
+                    row.push(
+                        escapeCSVValue(itemSKU),
+                        escapeCSVValue(item.name),
+                        escapeCSVValue(item.quantity || item.qty || 1),
+                        escapeCSVValue(item.price || Math.round(order.grand_total / (order.items.length || 1)))
+                    );
+                } else {
+                    row.push("", "", "", "");
+                }
+            }
+
+            rows.push(row);
+        }
+
+        // 6. Build CSV string
+        const csvContent = [
+            headers.join(","),
+            ...rows.map(r => r.join(","))
+        ].join("\n");
+
+        // 7. Log export activity on server
+        try {
+            await fetch('/api/admin/logs/export', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${sessionToken}`
+                },
+                body: JSON.stringify({
+                    adminName: 'Sreshta Admin',
+                    selectedStatus: statusFilter.value,
+                    ordersCount: currentlyFilteredOrders.length
+                })
+            });
+        } catch (logErr) {
+            console.error("Failed to write export log to backend database:", logErr);
+        }
+
+        // 8. Download the CSV file
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        const selectedStatus = statusFilter.value;
+        const filename = `Sreshta_NimbusPost_Export_${selectedStatus}_${new Date().toISOString().slice(0,10)}.csv`;
+        link.setAttribute("download", filename);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+    } catch (err) {
+        console.error("Export failed:", err);
+        alert("Export failed: " + err.message);
+    } finally {
+        if (btn) {
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+        }
+    }
 }
 
