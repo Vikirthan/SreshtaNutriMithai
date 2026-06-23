@@ -92,6 +92,62 @@ if (razorpayKeyId && razorpayKeySecret) {
 app.use(express.static('.'));
 app.use(express.static('public'));
 
+// Database logger for NimbusPost integration debugging
+async function logNimbusEvent(category, status, details, body, type) {
+    if (!supabase) return;
+    try {
+        await supabase.from('orders').insert([{
+            customer_name: '__nimbus_log__',
+            customer_email: String(category).slice(0, 255),
+            customer_phone: String(status).slice(0, 20),
+            customer_address: typeof details === 'object' ? JSON.stringify(details) : String(details),
+            customer_pincode: 'LOG',
+            items: body ? (Array.isArray(body) ? body : [body]) : [],
+            subtotal: 0,
+            shipping_fee: 0,
+            grand_total: 0,
+            order_status: 'log',
+            tracking_id: String(type || 'Log Event').slice(0, 50)
+        }]);
+    } catch (e) {
+        console.error("Failed to write Nimbus log to DB:", e.message);
+    }
+}
+
+// Middleware to log incoming /wp-json requests
+app.use(async (req, res, next) => {
+    if (!req.path.startsWith('/wp-json')) {
+        return next();
+    }
+
+    const method = req.method;
+    const url = req.originalUrl;
+    const headers = { ...req.headers };
+    
+    // Mask authorization header
+    if (headers.authorization) {
+        headers.authorization = 'Basic ' + headers.authorization.substring(6, 12) + '...';
+    }
+
+    const query = req.query;
+    const body = req.body;
+
+    res.on('finish', async () => {
+        await logNimbusEvent(
+            `${method} ${url}`,
+            res.statusCode,
+            {
+                headers,
+                query
+            },
+            body ? { request_body: body } : null,
+            'Incoming Request'
+        );
+    });
+
+    next();
+});
+
 // ==========================================================================
 // BREVO (SENDINBLUE) EMAIL API HELPER
 // ==========================================================================
@@ -1052,10 +1108,12 @@ app.post('/api/admin/orders/:id/push-nimbus', async (req, res) => {
 
         console.log(`Pushing Order #${orderId} to NimbusPost WooCommerce Webhook: ${webhookUrl} (Secret: ${webhookSecret === 'mock_secret' ? 'default mock' : 'custom db'})`);
         
+        const userAgent = 'WooCommerce/8.5.1 Hookshot (WordPress/6.4.3)';
         const webhookResponse = await fetch(webhookUrl, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                'User-Agent': userAgent,
                 'X-WC-Webhook-Topic': 'order.created',
                 'X-WC-Webhook-Resource': 'order',
                 'X-WC-Webhook-Event': 'created',
@@ -1067,9 +1125,35 @@ app.post('/api/admin/orders/:id/push-nimbus', async (req, res) => {
             body: bodyStr
         });
 
+        let responseBody = '';
+        try {
+            responseBody = await webhookResponse.text();
+        } catch (e) {
+            responseBody = `Error reading response: ${e.message}`;
+        }
+
+        // Log the outgoing webhook event
+        await logNimbusEvent(
+            `OUTGOING Manual Order #${orderId}`,
+            webhookResponse.status,
+            {
+                url: webhookUrl,
+                signature,
+                deliveryId,
+                headers: {
+                    'User-Agent': userAgent,
+                    'X-WC-Webhook-Signature': signature
+                }
+            },
+            {
+                payload: wooOrder,
+                response: responseBody
+            },
+            'Outgoing Webhook'
+        );
+
         if (!webhookResponse.ok) {
-            const errText = await webhookResponse.text();
-            throw new Error(`NimbusPost webhook returned status ${webhookResponse.status}: ${errText}`);
+            throw new Error(`NimbusPost webhook returned status ${webhookResponse.status}: ${responseBody}`);
         }
 
         res.json({
@@ -1644,10 +1728,12 @@ async function triggerNimbusPostWebhook(order) {
 
         console.log(`Auto-pushing Order #${order.id} to NimbusPost Webhook: ${webhookUrl} (Secret: ${webhookSecret === 'mock_secret' ? 'default mock' : 'custom db'})`);
 
+        const userAgent = 'WooCommerce/8.5.1 Hookshot (WordPress/6.4.3)';
         const webhookResponse = await fetch(webhookUrl, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                'User-Agent': userAgent,
                 'X-WC-Webhook-Topic': 'order.created',
                 'X-WC-Webhook-Resource': 'order',
                 'X-WC-Webhook-Event': 'created',
@@ -1659,9 +1745,35 @@ async function triggerNimbusPostWebhook(order) {
             body: bodyStr
         });
 
+        let responseBody = '';
+        try {
+            responseBody = await webhookResponse.text();
+        } catch (e) {
+            responseBody = `Error reading response: ${e.message}`;
+        }
+
+        // Log the outgoing webhook event
+        await logNimbusEvent(
+            `OUTGOING Auto Order #${order.id}`,
+            webhookResponse.status,
+            {
+                url: webhookUrl,
+                signature,
+                deliveryId,
+                headers: {
+                    'User-Agent': userAgent,
+                    'X-WC-Webhook-Signature': signature
+                }
+            },
+            {
+                payload: wooOrder,
+                response: responseBody
+            },
+            'Outgoing Webhook'
+        );
+
         if (!webhookResponse.ok) {
-            const errText = await webhookResponse.text();
-            console.error(`NimbusPost Webhook Auto-Trigger failed with status ${webhookResponse.status}: ${errText}`);
+            console.error(`NimbusPost Webhook Auto-Trigger failed with status ${webhookResponse.status}: ${responseBody}`);
         } else {
             console.log(`NimbusPost Webhook Auto-Trigger successful for Order #${order.id}`);
         }
