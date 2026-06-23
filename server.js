@@ -559,6 +559,13 @@ app.post('/api/orders', async (req, res) => {
         const order = data[0];
         console.log(`New order created in DB with ID: #${order.id}`);
 
+        // Trigger Nimbus webhook push in background (awaited to ensure execution on Vercel serverless environment)
+        try {
+            await triggerNimbusPostWebhook(order);
+        } catch (e) {
+            console.error("Auto-push Webhook Error during checkout:", e.message);
+        }
+
         // Prepare email variables
         const itemsHtml = getItemsListHtml(items);
         const recipientEmail = email || 'customer@example.com';
@@ -655,7 +662,12 @@ app.post('/api/create-order', async (req, res) => {
             const adminEmailBody = getAdminNotificationTemplate(order, itemsHtml);
             await sendEmail(adminNotificationEmail, "Sreshta Admin", adminSubject, adminEmailBody);
 
-            // Auto-push is now manually triggered from the admin orders page, no automatic push during checkout
+            // Trigger Nimbus webhook push in background (awaited to ensure execution on Vercel serverless environment)
+            try {
+                await triggerNimbusPostWebhook(order);
+            } catch (e) {
+                console.error("Auto-push Webhook Error during test order:", e.message);
+            }
 
             return res.status(201).json({
                 success: true,
@@ -735,6 +747,13 @@ app.post('/api/verify-payment', async (req, res) => {
         }
 
         const order = data[0];
+
+        // Trigger Nimbus webhook push in background (awaited to ensure execution on Vercel serverless environment)
+        try {
+            await triggerNimbusPostWebhook(order);
+        } catch (e) {
+            console.error("Auto-push Webhook Error during payment verification:", e.message);
+        }
 
         // Send payment confirmation email to client
         const customerEmail = order.customer_email;
@@ -1559,6 +1578,75 @@ async function autoPushOrderToNimbusPost(order) {
     } catch (err) {
         console.error("NimbusPost auto-push Exception:", err.message);
         return { success: false, error: err.message };
+    }
+}
+
+
+// Helper to automatically push confirmed orders to NimbusPost using webhook sync
+async function triggerNimbusPostWebhook(order) {
+    if (!supabase) {
+        console.warn("NimbusPost Webhook Auto-Trigger: Supabase not configured.");
+        return;
+    }
+
+    try {
+        // Format order to WooCommerce format
+        const wooOrder = await formatOrderToWooCommerce(order);
+
+        // Fetch registered webhook URL and secret from DB
+        const { data: webhookDocs, error: webhookError } = await supabase
+            .from('orders')
+            .select('id, tracking_id, courier_name')
+            .eq('customer_name', '__nimbus_webhook__');
+
+        let webhookUrl = null;
+        let webhookSecret = 'mock_secret';
+        let webhookRecordId = 1;
+        if (!webhookError && webhookDocs && webhookDocs.length > 0) {
+            webhookUrl = webhookDocs[0].tracking_id;
+            webhookSecret = webhookDocs[0].courier_name || 'mock_secret';
+            webhookRecordId = webhookDocs[0].id;
+        }
+
+        if (!webhookUrl) {
+            console.log("NimbusPost Webhook Auto-Trigger: Webhook URL is not registered. Skipping auto-push.");
+            return;
+        }
+
+        const crypto = require('crypto');
+        const bodyStr = JSON.stringify(wooOrder);
+        const signature = crypto
+            .createHmac('sha256', webhookSecret)
+            .update(bodyStr, 'utf8')
+            .digest('base64');
+        const deliveryId = crypto.randomBytes(8).toString('hex');
+
+        console.log(`Auto-pushing Order #${order.id} to NimbusPost Webhook: ${webhookUrl} (Secret: ${webhookSecret === 'mock_secret' ? 'default mock' : 'custom db'})`);
+
+        const webhookResponse = await fetch(webhookUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-WC-Webhook-Topic': 'order.created',
+                'X-WC-Webhook-Resource': 'order',
+                'X-WC-Webhook-Event': 'created',
+                'X-WC-Webhook-Signature': signature,
+                'X-WC-Webhook-ID': String(webhookRecordId),
+                'X-WC-Webhook-Delivery-ID': deliveryId,
+                'X-WC-Webhook-Source': 'https://sreshtanutrimithai.vercel.app/'
+            },
+            body: bodyStr
+        });
+
+        if (!webhookResponse.ok) {
+            const errText = await webhookResponse.text();
+            console.error(`NimbusPost Webhook Auto-Trigger failed with status ${webhookResponse.status}: ${errText}`);
+        } else {
+            console.log(`NimbusPost Webhook Auto-Trigger successful for Order #${order.id}`);
+        }
+
+    } catch (err) {
+        console.error("NimbusPost Webhook Auto-Trigger Exception:", err.message);
     }
 }
 
