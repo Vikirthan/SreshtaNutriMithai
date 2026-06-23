@@ -1427,7 +1427,7 @@ app.post('/api/admin/orders/bulk-delete', async (req, res) => {
 // ==========================================================================
 
 // Helper to format order record for WooCommerce mock responses and webhooks
-async function formatOrderToWooCommerce(order) {
+async function formatOrderToWooCommerce(order, statusOverride = 'completed') {
     const pincodeDetails = await getCachedPincodeDetails(order.customer_pincode);
     
     // Format items to match WooCommerce line_items format
@@ -1462,7 +1462,7 @@ async function formatOrderToWooCommerce(order) {
         order_key: `wc_order_${order.id}`,
         created_via: "checkout",
         version: "3.0.0",
-        status: "completed", // WooCommerce 'completed' status ensures it's synced regardless of map filtering
+        status: statusOverride, // Use dynamic status (default to completed)
         currency: "INR",
         date_created: cleanDate,
         date_created_gmt: cleanDate,
@@ -1969,9 +1969,10 @@ app.get('/wp-json/wc/v3/orders', async (req, res) => {
 
         if (error) throw error;
 
+        const requestedStatus = req.query.status || 'processing';
         const wooOrders = [];
         for (const order of data) {
-            const formatted = await formatOrderToWooCommerce(order);
+            const formatted = await formatOrderToWooCommerce(order, requestedStatus);
             wooOrders.push(formatted);
         }
 
@@ -2016,7 +2017,7 @@ app.get('/wp-json/wc/v3/orders/:id', async (req, res) => {
             });
         }
 
-        const formatted = await formatOrderToWooCommerce(data[0]);
+        const formatted = await formatOrderToWooCommerce(data[0], req.query.status || 'processing');
         res.json(formatted);
     } catch (err) {
         console.error("WooCommerce GET single order mock failed:", err.message);
