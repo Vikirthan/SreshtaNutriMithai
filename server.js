@@ -366,11 +366,12 @@ function getUPIQRCodeURL(orderId, amount) {
 // Compile order list items HTML
 function getItemsListHtml(items) {
     let html = '<div class="order-summary-box">';
-    items.forEach(item => {
+    const cleanItems = (items || []).filter(item => item.name !== "__payment_method__");
+    cleanItems.forEach(item => {
         html += `
             <div class="item-row">
-                <span><strong>${item.name}</strong> (${item.weight}) x ${item.quantity}</span>
-                <span>₹${item.price * item.quantity}.00</span>
+                <span><strong>${item.name}</strong> (${item.weight || ''}) x ${item.quantity || item.qty || 1}</span>
+                <span>₹${(item.price || 0) * (item.quantity || item.qty || 1)}.00</span>
             </div>
         `;
     });
@@ -935,6 +936,72 @@ app.post('/api/admin/logs/export', async (req, res) => {
     }
 });
 
+// 3c. Add Manual Order (Admin check)
+app.post('/api/admin/orders', async (req, res) => {
+    if (!supabase) {
+        return res.status(500).json({ error: "Database not configured." });
+    }
+
+    const authHeader = req.headers.authorization;
+    if (authHeader !== "Bearer sreshta-admin-authenticated-session") {
+        return res.status(403).json({ error: "Access Denied." });
+    }
+
+    const { 
+        name, 
+        email, 
+        phone, 
+        address, 
+        pincode, 
+        items, 
+        subtotal, 
+        shippingFee, 
+        grandTotal,
+        paymentType,
+        orderStatus 
+    } = req.body;
+
+    if (!name || !phone || !address || !pincode || !items || items.length === 0) {
+        return res.status(400).json({ error: "Missing required order details." });
+    }
+
+    try {
+        const finalItems = [...items];
+        finalItems.push({
+            name: "__payment_method__",
+            value: paymentType || "Prepaid",
+            weight: "0g",
+            price: 0,
+            quantity: 1
+        });
+
+        const { data, error } = await supabase
+            .from('orders')
+            .insert([
+                {
+                    customer_name: name,
+                    customer_email: email || '',
+                    customer_phone: phone,
+                    customer_address: address,
+                    customer_pincode: pincode,
+                    items: finalItems,
+                    subtotal: parseFloat(subtotal) || 0,
+                    shipping_fee: parseFloat(shippingFee) || 0,
+                    grand_total: parseFloat(grandTotal) || 0,
+                    order_status: orderStatus || 'received'
+                }
+            ])
+            .select();
+
+        if (error) throw error;
+
+        res.status(201).json({ success: true, orderId: data[0].id });
+    } catch (err) {
+        console.error("Manual Order Creation Error:", err.message);
+        res.status(500).json({ error: "Failed to create manual order." });
+    }
+});
+
 // 4. Confirm Payment (Admin button)
 app.post('/api/admin/orders/:id/confirm-payment', async (req, res) => {
     if (!supabase) {
@@ -1485,7 +1552,7 @@ async function formatOrderToWooCommerce(order, statusOverride = 'completed') {
     const pincodeDetails = await getCachedPincodeDetails(order.customer_pincode);
     
     // Format items to match WooCommerce line_items format
-    const lineItems = (order.items || []).map((item, idx) => ({
+    const lineItems = (order.items || []).filter(item => item.name !== "__payment_method__").map((item, idx) => ({
         id: idx + 1,
         name: item.name || `Sweets Item`,
         product_id: idx + 100,
@@ -1660,7 +1727,7 @@ async function autoPushOrderToNimbusPost(order) {
 
         // 2. Parse total weight and dimensions
         let totalWeight = 0;
-        const items = order.items || [];
+        const items = (order.items || []).filter(item => item.name !== "__payment_method__");
         for (const item of items) {
             const qty = parseInt(item.quantity || item.qty || 1);
             const weightStr = String(item.weight || item.name || "").toLowerCase();

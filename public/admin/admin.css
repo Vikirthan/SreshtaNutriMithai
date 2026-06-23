@@ -996,3 +996,42 @@ body {
         flex-direction: column;
     }
 }
+
+/* ==========================================================================
+   MANUAL ORDER MODAL FORM STYLES
+   ========================================================================== */
+.manual-item-row {
+    transition: all 0.2s ease;
+}
+
+.manual-item-row input {
+    font-family: var(--font-primary);
+    font-size: 13px;
+    border: 1px solid var(--color-border-warm);
+    border-radius: var(--border-radius-sm);
+    outline: none;
+    background-color: var(--color-bg-white);
+    color: var(--color-text-dark);
+}
+
+.manual-item-row input:focus {
+    border-color: var(--color-accent);
+}
+
+.btn-delete-row {
+    transition: color 0.15s ease;
+}
+
+.btn-delete-row:hover {
+    color: #DC2626 !important;
+}
+
+.btn-export-action.add-order {
+    background-color: var(--color-primary);
+    color: white;
+}
+
+.btn-export-action.add-order:hover {
+    background-color: var(--color-primary-light);
+    transform: translateY(-1px);
+}

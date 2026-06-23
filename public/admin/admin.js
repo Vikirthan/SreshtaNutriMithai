@@ -66,6 +66,50 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
+    // Setup Manual Order Modal events
+    const btnAddManualOrder = document.getElementById("btn-add-manual-order");
+    const btnCloseAddOrder = document.getElementById("btn-close-add-order");
+    const btnAddItemRow = document.getElementById("btn-add-item-row");
+    const addOrderForm = document.getElementById("add-order-form");
+    const manualSubtotalInput = document.getElementById("manual-subtotal");
+    const manualShippingInput = document.getElementById("manual-shipping");
+    const manualGrandTotalInput = document.getElementById("manual-grandtotal");
+    const manualItemsContainer = document.getElementById("manual-items-container");
+
+    if (btnAddManualOrder) {
+        btnAddManualOrder.addEventListener("click", () => {
+            document.getElementById("add-order-form").reset();
+            if (manualItemsContainer) {
+                manualItemsContainer.innerHTML = "";
+                // Add one initial empty item row
+                addManualItemRow();
+            }
+            if (manualSubtotalInput) manualSubtotalInput.value = "0";
+            if (manualShippingInput) manualShippingInput.value = "50"; // default shipping fee
+            if (manualGrandTotalInput) manualGrandTotalInput.value = "50";
+            document.getElementById("add-order-modal").classList.remove("hidden");
+        });
+    }
+
+    if (btnCloseAddOrder) {
+        btnCloseAddOrder.addEventListener("click", () => {
+            const modal = document.getElementById("add-order-modal");
+            if (modal) modal.classList.add("hidden");
+        });
+    }
+
+    if (btnAddItemRow) {
+        btnAddItemRow.addEventListener("click", () => addManualItemRow());
+    }
+
+    if (manualShippingInput) {
+        manualShippingInput.addEventListener("input", calculateManualOrderTotals);
+    }
+
+    if (addOrderForm) {
+        addOrderForm.addEventListener("submit", submitManualOrder);
+    }
+
     // Setup Selection & Bulk Action events
     if (selectAllCheckbox) {
         selectAllCheckbox.addEventListener("change", toggleSelectAll);
@@ -556,11 +600,13 @@ function renderTableRows(orderRecords) {
         });
 
         // Format Items list details
-        const itemsListHtml = order.items.map(item => {
-            return `
-                <li>${item.name} <span class="order-item-weight">${item.weight}</span> x ${item.quantity}</li>
-            `;
-        }).join('');
+        const itemsListHtml = (order.items || [])
+            .filter(item => item.name !== "__payment_method__")
+            .map(item => {
+                return `
+                    <li>${item.name} <span class="order-item-weight">${item.weight || ''}</span> x ${item.quantity || item.qty || 1}</li>
+                `;
+            }).join('');
 
         // Extract customer email (if present in payload or fallback email)
         const email = order.customer_email || order.email || 'customer@example.com';
@@ -909,7 +955,7 @@ async function resolvePincodeClient(pincode) {
 
 function getOrderDimensions(order) {
     let totalWeight = 0;
-    const items = order.items || [];
+    const items = (order.items || []).filter(item => item.name !== "__payment_method__");
     for (const item of items) {
         const qty = parseInt(item.quantity || item.qty || 1);
         const weightStr = String(item.weight || item.name || "").toLowerCase();
@@ -954,7 +1000,10 @@ function exportToXLSX() {
     const data = currentlyFilteredOrders.map(order => {
         const dateObj = new Date(order.created_at);
         const formattedDate = dateObj.toLocaleString('en-IN');
-        const itemsList = order.items.map(item => `${item.name} (${item.weight || ''}) x ${item.quantity || item.qty || 1}`).join(', ');
+        const itemsList = order.items
+            .filter(item => item.name !== "__payment_method__")
+            .map(item => `${item.name} (${item.weight || ''}) x ${item.quantity || item.qty || 1}`)
+            .join(', ');
         const email = order.customer_email || order.email || '';
 
         return {
@@ -1033,10 +1082,11 @@ async function exportToNimbusCSV() {
             }
             
             // Validate product details
-            if (!order.items || order.items.length === 0) {
+            const cleanItems = (order.items || []).filter(item => item.name !== "__payment_method__");
+            if (cleanItems.length === 0) {
                 missingFields.push("Product Name");
             } else {
-                const hasMissingName = order.items.some(item => !item.name || !item.name.trim());
+                const hasMissingName = cleanItems.some(item => !item.name || !item.name.trim());
                 if (hasMissingName) {
                     missingFields.push("Product Name");
                 }
@@ -1063,8 +1113,9 @@ async function exportToNimbusCSV() {
         // 3. Find max products across orders to dynamically generate SKU/Product/Quantity/Price column sets
         let maxItemsCount = 1;
         currentlyFilteredOrders.forEach(order => {
-            if (order.items && order.items.length > maxItemsCount) {
-                maxItemsCount = order.items.length;
+            const cleanItems = (order.items || []).filter(item => item.name !== "__payment_method__");
+            if (cleanItems.length > maxItemsCount) {
+                maxItemsCount = cleanItems.length;
             }
         });
 
@@ -1123,8 +1174,9 @@ async function exportToNimbusCSV() {
             }
 
             // Payment type and COD Amount
-            const paymentMethod = (order.payment_method || order.payment_type || "").toUpperCase();
-            const isCOD = paymentMethod === 'COD' || paymentMethod.includes('COD');
+            const paymentMethodItem = (order.items || []).find(item => item.name === "__payment_method__");
+            const paymentMethodVal = paymentMethodItem ? paymentMethodItem.value : (order.payment_method || order.payment_type || "");
+            const isCOD = String(paymentMethodVal).toUpperCase() === 'COD' || String(paymentMethodVal).toUpperCase().includes('COD');
             const paymentType = isCOD ? 'COD' : 'Prepaid';
             const collectableAmount = isCOD ? (order.grand_total || 0) : 0;
 
@@ -1149,15 +1201,16 @@ async function exportToNimbusCSV() {
             ];
 
             // Add item SKU/Product/Quantity/Price
+            const cleanItems = (order.items || []).filter(item => item.name !== "__payment_method__");
             for (let j = 0; j < maxItemsCount; j++) {
-                const item = order.items && order.items[j];
+                const item = cleanItems[j];
                 if (item) {
                     const itemSKU = item.sku || `sku-${order.id}-${j}`;
                     row.push(
                         escapeCSVValue(itemSKU),
                         escapeCSVValue(item.name),
                         escapeCSVValue(item.quantity || item.qty || 1),
-                        escapeCSVValue(item.price || Math.round(order.grand_total / (order.items.length || 1)))
+                        escapeCSVValue(item.price || Math.round(order.grand_total / (cleanItems.length || 1)))
                     );
                 } else {
                     row.push("", "", "", "");
@@ -1212,6 +1265,155 @@ async function exportToNimbusCSV() {
             btn.innerHTML = originalText;
             btn.disabled = false;
         }
+    }
+}
+
+// ==========================================================================
+// MANUAL ORDER CREATION LOGIC
+// ==========================================================================
+
+function addManualItemRow(name = "", weight = "", price = 0, quantity = 1) {
+    const container = document.getElementById("manual-items-container");
+    if (!container) return;
+
+    const row = document.createElement("div");
+    row.className = "manual-item-row";
+    row.style.display = "grid";
+    row.style.gridTemplateColumns = "2fr 1fr 1fr 1fr auto";
+    row.style.gap = "8px";
+    row.style.alignItems = "center";
+    row.style.marginBottom = "8px";
+
+    row.innerHTML = `
+        <input type="text" class="item-name" required placeholder="Product Name" value="${name}" style="width: 100%; padding: 8px; border: 1px solid var(--color-border-warm); border-radius: 4px;">
+        <input type="text" class="item-weight" placeholder="e.g. 500g" value="${weight}" style="width: 100%; padding: 8px; border: 1px solid var(--color-border-warm); border-radius: 4px;">
+        <input type="number" class="item-price" required min="0" placeholder="Price" value="${price || ''}" style="width: 100%; padding: 8px; border: 1px solid var(--color-border-warm); border-radius: 4px;">
+        <input type="number" class="item-qty" required min="1" value="${quantity}" style="width: 100%; padding: 8px; border: 1px solid var(--color-border-warm); border-radius: 4px;">
+        <button type="button" class="btn-delete-row" style="background: none; border: none; color: var(--color-danger); cursor: pointer; font-size: 18px; padding: 0 4px;">✕</button>
+    `;
+
+    const priceInput = row.querySelector(".item-price");
+    const qtyInput = row.querySelector(".item-qty");
+    const deleteBtn = row.querySelector(".btn-delete-row");
+
+    priceInput.addEventListener("input", calculateManualOrderTotals);
+    qtyInput.addEventListener("input", calculateManualOrderTotals);
+    
+    deleteBtn.addEventListener("click", () => {
+        const totalRows = container.querySelectorAll(".manual-item-row").length;
+        if (totalRows > 1) {
+            row.remove();
+            calculateManualOrderTotals();
+        } else {
+            alert("An order must contain at least one product item.");
+        }
+    });
+
+    container.appendChild(row);
+    calculateManualOrderTotals();
+}
+
+function calculateManualOrderTotals() {
+    const container = document.getElementById("manual-items-container");
+    if (!container) return;
+
+    let subtotal = 0;
+    const rows = container.querySelectorAll(".manual-item-row");
+    rows.forEach(row => {
+        const price = parseFloat(row.querySelector(".item-price").value) || 0;
+        const qty = parseInt(row.querySelector(".item-qty").value) || 0;
+        subtotal += price * qty;
+    });
+
+    const subtotalInput = document.getElementById("manual-subtotal");
+    const shippingInput = document.getElementById("manual-shipping");
+    const grandtotalInput = document.getElementById("manual-grandtotal");
+
+    const shipping = parseFloat(shippingInput ? shippingInput.value : 0) || 0;
+    
+    if (subtotalInput) subtotalInput.value = subtotal;
+    if (grandtotalInput) grandtotalInput.value = subtotal + shipping;
+}
+
+async function submitManualOrder(e) {
+    e.preventDefault();
+
+    const name = document.getElementById("manual-cust-name").value.trim();
+    const phone = document.getElementById("manual-cust-phone").value.trim();
+    const email = document.getElementById("manual-cust-email").value.trim();
+    const pincode = document.getElementById("manual-cust-pincode").value.trim();
+    const address = document.getElementById("manual-cust-address").value.trim();
+    
+    const subtotal = parseFloat(document.getElementById("manual-subtotal").value) || 0;
+    const shippingFee = parseFloat(document.getElementById("manual-shipping").value) || 0;
+    const grandTotal = parseFloat(document.getElementById("manual-grandtotal").value) || 0;
+
+    const paymentType = document.getElementById("manual-payment-type").value;
+    const orderStatus = document.getElementById("manual-order-status").value;
+
+    const items = [];
+    const itemRows = document.querySelectorAll(".manual-item-row");
+    itemRows.forEach((row, index) => {
+        const itemName = row.querySelector(".item-name").value.trim();
+        const itemWeight = row.querySelector(".item-weight").value.trim() || "500g";
+        const itemPrice = parseFloat(row.querySelector(".item-price").value) || 0;
+        const itemQty = parseInt(row.querySelector(".item-qty").value) || 1;
+
+        items.push({
+            name: itemName,
+            weight: itemWeight,
+            price: itemPrice,
+            quantity: itemQty,
+            sku: `sku-manual-${Date.now()}-${index}`
+        });
+    });
+
+    if (items.length === 0) {
+        alert("Please add at least one item to the order.");
+        return;
+    }
+
+    const submitBtn = e.target.querySelector("button[type='submit']");
+    const originalText = submitBtn.innerHTML;
+    submitBtn.innerHTML = "⏳ Creating Order...";
+    submitBtn.disabled = true;
+
+    try {
+        const response = await fetch('/api/admin/orders', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${sessionToken}`
+            },
+            body: JSON.stringify({
+                name,
+                email,
+                phone,
+                address,
+                pincode,
+                items,
+                subtotal,
+                shippingFee,
+                grandTotal,
+                paymentType,
+                orderStatus
+            })
+        });
+
+        const data = await response.json();
+        if (response.ok && data.success) {
+            alert(`Success! Manual Order #${data.orderId} created successfully.`);
+            document.getElementById("add-order-modal").classList.add("hidden");
+            fetchOrders();
+        } else {
+            alert(data.error || "Failed to create order.");
+        }
+    } catch (err) {
+        console.error(err);
+        alert("Server error occurred while creating order.");
+    } finally {
+        submitBtn.innerHTML = originalText;
+        submitBtn.disabled = false;
     }
 }
 
